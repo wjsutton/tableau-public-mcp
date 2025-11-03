@@ -28,7 +28,7 @@ const paramsSchema = z.object({
     .max(20)
     .optional()
     .default(12)
-    .describe("Number of VOTD entries to return (default: 12, max: 20)")
+    .describe("Number of VOTD entries to return (default: 12, max: 12)")
 });
 
 type GetVizOfDayParams = z.infer<typeof paramsSchema>;
@@ -67,7 +67,7 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
       "VOTD is a curated selection of exceptional visualizations featured by Tableau. " +
       "Returns recent winners with workbook titles, authors, feature dates, descriptions, " +
       "view counts, and thumbnails. Supports pagination with page and limit parameters " +
-      "(max 20 per request). Useful for discovering high-quality visualizations and " +
+      "(max 12 per request). Useful for discovering high-quality visualizations and " +
       "staying updated with featured content.",
     paramsSchema: paramsSchema.shape,
     annotations: {
