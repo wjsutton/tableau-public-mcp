@@ -12,7 +12,7 @@
  */
 
 import { cachedGet } from "../utils/cachedApiClient.js";
-import { clearAllCaches, getAllCacheStats, CacheStats } from "../utils/cache.js";
+import { clearAllCaches, getAllCacheStats } from "../utils/cache.js";
 import { fetchAndOptimizeImage } from "../utils/imageProcessing.js";
 import { getConfig } from "../config.js";
 
@@ -47,20 +47,6 @@ interface ToolResult {
   success: boolean;
   error?: string;
   dataSize?: number;
-}
-
-interface BenchmarkSummary {
-  startTime: string;
-  endTime: string;
-  individualTools: ToolResult[];
-  workflows: WorkflowResult[];
-  cacheStats: CacheStats[];
-  overallStats: {
-    totalColdTime: number;
-    totalWarmTime: number;
-    avgSpeedup: number;
-    successRate: number;
-  };
 }
 
 // API response types
@@ -148,16 +134,6 @@ function formatMs(ms: number): string {
   if (ms < 0.1) return `${(ms * 1000).toFixed(0)}μs`;
   if (ms < 1000) return `${ms.toFixed(1)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
-}
-
-/**
- * Format bytes for display
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 /**
