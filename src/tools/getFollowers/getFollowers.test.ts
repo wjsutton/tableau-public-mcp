@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getFollowersTool } from "./getFollowers.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getFollowers", () => {
@@ -38,43 +36,25 @@ describe("getFollowers", () => {
       { username: "follower2", displayName: "Follower Two" }
     ];
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockFollowers,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockFollowers);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("follower1");
-      expect(responseText).toContain("follower2");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("follower1");
+    expect(responseText).toContain("follower2");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/profile/api/followers/testuser",
-      {
-        params: {
-          index: 0,
-          count: 24
-        }
-      }
+      { index: 0, count: 24 }
     );
   });
 
   it("should support pagination", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: [],
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce([]);
 
     await tool.callback({
       username: "testuser",
@@ -82,14 +62,9 @@ describe("getFollowers", () => {
       count: 24
     });
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/profile/api/followers/testuser",
-      {
-        params: {
-          index: 48,
-          count: 24
-        }
-      }
+      { index: 48, count: 24 }
     );
   });
 
@@ -103,13 +78,12 @@ describe("getFollowers", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ username: "nonexistent" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

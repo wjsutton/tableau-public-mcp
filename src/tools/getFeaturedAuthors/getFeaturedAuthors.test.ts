@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getFeaturedAuthorsTool } from "./getFeaturedAuthors.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getFeaturedAuthors", () => {
@@ -40,42 +38,28 @@ describe("getFeaturedAuthors", () => {
       ]
     };
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockAuthors,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockAuthors);
 
     const result = await tool.callback({});
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("author1");
-      expect(responseText).toContain("Data viz expert");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("author1");
+    expect(responseText).toContain("Data viz expert");
 
-    expect(apiClient.get).toHaveBeenCalledWith("/s/authors/list/feed");
+    expect(cachedGet).toHaveBeenCalledWith("/s/authors/list/feed");
   });
 
   it("should handle empty authors list", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { authors: [] },
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce({ authors: [] });
 
     const result = await tool.callback({});
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
   });
 
   it("should handle errors", async () => {
@@ -88,13 +72,12 @@ describe("getFeaturedAuthors", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({});
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

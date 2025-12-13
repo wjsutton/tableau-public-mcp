@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getUserProfileCategoriesTool } from "./getUserProfileCategories.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getUserProfileCategories", () => {
@@ -50,43 +48,25 @@ describe("getUserProfileCategories", () => {
       ]
     };
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockCategories,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockCategories);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("Data Visualizations");
-      expect(responseText).toContain("Analytics");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("Data Visualizations");
+    expect(responseText).toContain("Analytics");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/v1/author/testuser/categories",
-      {
-        params: {
-          startIndex: 0,
-          pageSize: 500
-        }
-      }
+      { startIndex: 0, pageSize: 500 }
     );
   });
 
   it("should support custom pagination parameters", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { categories: [] },
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce({ categories: [] });
 
     await tool.callback({
       username: "testuser",
@@ -94,14 +74,9 @@ describe("getUserProfileCategories", () => {
       pageSize: 50
     });
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/v1/author/testuser/categories",
-      {
-        params: {
-          startIndex: 10,
-          pageSize: 50
-        }
-      }
+      { startIndex: 10, pageSize: 50 }
     );
   });
 
@@ -115,13 +90,12 @@ describe("getUserProfileCategories", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ username: "nonexistent" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

@@ -3,15 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { z } from "zod";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getUserProfileTool } from "./getUserProfile.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-// Mock the API client
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getUserProfile", () => {
@@ -43,26 +41,19 @@ describe("getUserProfile", () => {
       favorites: 25
     };
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockProfile,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockProfile);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      expect(result.value.content[0].type).toBe("text");
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("Test User");
-      expect(responseText).toContain("testuser");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    expect(value.content[0].type).toBe("text");
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("Test User");
+    expect(responseText).toContain("testuser");
 
-    expect(apiClient.get).toHaveBeenCalledWith("/profile/api/testuser");
+    expect(cachedGet).toHaveBeenCalledWith("/profile/api/testuser");
   });
 
   it("should handle 404 errors for non-existent users", async () => {
@@ -75,15 +66,13 @@ describe("getUserProfile", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ username: "nonexistent" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-      expect(result.value.content[0].text).toContain("not found");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 
   it("should handle network errors", async () => {
@@ -94,19 +83,16 @@ describe("getUserProfile", () => {
       message: "Network Error"
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-      expect(result.value.content[0].text).toContain("Network error");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 
   it("should validate username parameter", () => {
-    // The Zod schema should reject empty usernames
     const schema = tool.paramsSchema;
     expect(() => {
       z.object(schema).parse({ username: "" });

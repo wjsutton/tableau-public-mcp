@@ -9,7 +9,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -82,21 +82,16 @@ export function getFollowingTool(server: Server): Tool<typeof paramsSchema.shape
       try {
         console.error(`[get_following] Fetching following for user: ${username} (index=${index}, count=${count})`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet<unknown[]>(
           `/profile/api/following/${username}`,
-          {
-            params: {
-              index,
-              count
-            }
-          }
+          { index, count }
         );
 
-        const followingCount = response.data?.length || 0;
+        const followingCount = data?.length || 0;
         console.error(`[get_following] Retrieved ${followingCount} following accounts for ${username}`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching following list for user '${username}'`);

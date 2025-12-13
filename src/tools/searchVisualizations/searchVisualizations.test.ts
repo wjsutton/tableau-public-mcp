@@ -5,12 +5,24 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { searchVisualizationsTool } from "./searchVisualizations.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
+}));
+
+vi.mock("../../config.js", () => ({
+  getConfig: vi.fn(() => ({
+    logLevel: "info",
+    cacheEnabled: true,
+    maxResultLimit: 1000,
+    apiTimeout: 30000,
+    baseURL: "https://public.tableau.com",
+    cacheMaxEntries: 1000,
+    cacheDefaultTTL: 300000,
+    maxConcurrency: 3,
+    batchDelayMs: 100,
+  }))
 }));
 
 describe("searchVisualizations", () => {
@@ -40,33 +52,24 @@ describe("searchVisualizations", () => {
       ]
     };
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockResults,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockResults);
 
     const result = await tool.callback({ query: "COVID" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("COVID Dashboard");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("COVID Dashboard");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/api/search/query",
       {
-        params: {
-          query: "COVID",
-          type: "vizzes",
-          count: 20,
-          start: 0,
-          language: "en-us"
-        }
+        query: "COVID",
+        type: "vizzes",
+        count: 20,
+        start: 0,
+        language: "en-us"
       }
     );
   });
@@ -78,38 +81,24 @@ describe("searchVisualizations", () => {
       ]
     };
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockResults,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockResults);
 
     await tool.callback({ query: "data viz", type: "authors" });
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/api/search/query",
       {
-        params: {
-          query: "data viz",
-          type: "authors",
-          count: 20,
-          start: 0,
-          language: "en-us"
-        }
+        query: "data viz",
+        type: "authors",
+        count: 20,
+        start: 0,
+        language: "en-us"
       }
     );
   });
 
   it("should support pagination", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { results: [] },
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce({ results: [] });
 
     await tool.callback({
       query: "test",
@@ -117,16 +106,14 @@ describe("searchVisualizations", () => {
       count: 10
     });
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/api/search/query",
       {
-        params: {
-          query: "test",
-          type: "vizzes",
-          count: 10,
-          start: 20,
-          language: "en-us"
-        }
+        query: "test",
+        type: "vizzes",
+        count: 10,
+        start: 20,
+        language: "en-us"
       }
     );
   });
@@ -141,13 +128,12 @@ describe("searchVisualizations", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ query: "test" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

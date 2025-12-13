@@ -9,7 +9,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -68,15 +68,15 @@ export function getWorkbookContentsTool(server: Server): Tool<typeof paramsSchem
       try {
         console.error(`[get_workbook_contents] Fetching contents for workbook: ${workbookUrl}`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet<{ sheets?: unknown[] }>(
           `/profile/api/workbook/${workbookUrl}`
         );
 
-        const sheetCount = response.data?.sheets?.length || 0;
+        const sheetCount = data?.sheets?.length || 0;
         console.error(`[get_workbook_contents] Retrieved ${sheetCount} sheets for ${workbookUrl}`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching contents for workbook '${workbookUrl}'`);

@@ -9,7 +9,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -88,23 +88,16 @@ export function getWorkbooksListTool(server: Server): Tool<typeof paramsSchema.s
       try {
         console.error(`[get_workbooks_list] Fetching workbooks for user: ${username} (start=${start}, count=${count}, visibility=${visibility})`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet<unknown[]>(
           "/public/apis/workbooks",
-          {
-            params: {
-              profileName: username,
-              start,
-              count,
-              visibility
-            }
-          }
+          { profileName: username, start, count, visibility }
         );
 
-        const workbookCount = response.data?.length || 0;
+        const workbookCount = data?.length || 0;
         console.error(`[get_workbooks_list] Retrieved ${workbookCount} workbooks for ${username}`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching workbooks for user '${username}'`);

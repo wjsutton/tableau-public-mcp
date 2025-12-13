@@ -9,7 +9,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -65,14 +65,14 @@ export function getSharedWorkbookTool(server: Server): Tool<typeof paramsSchema.
       try {
         console.error(`[get_shared_workbook] Fetching shared workbook for ID: ${shareId}`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet(
           `/profile/api/workbook/shared/${shareId}`
         );
 
         console.error(`[get_shared_workbook] Successfully retrieved shared workbook details`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching shared workbook with ID '${shareId}'`);

@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getFavoritesTool } from "./getFavorites.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getFavorites", () => {
@@ -28,7 +26,7 @@ describe("getFavorites", () => {
 
   it("should have correct metadata", () => {
     expect(tool.name).toBe("get_favorites");
-    expect(tool.description).toContain("favorites");
+    expect(tool.description).toContain("favorited");
     expect(tool.annotations?.title).toBe("Get Favorites");
   });
 
@@ -39,44 +37,30 @@ describe("getFavorites", () => {
       "user3/dashboard-3"
     ];
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockFavorites,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockFavorites);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("user1/dashboard-1");
-      expect(responseText).toContain("user2/dashboard-2");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("user1/dashboard-1");
+    expect(responseText).toContain("user2/dashboard-2");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/profile/api/favorite/testuser/workbook"
     );
   });
 
   it("should handle empty favorites list", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: [],
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce([]);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
   });
 
   it("should handle errors", async () => {
@@ -89,13 +73,12 @@ describe("getFavorites", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ username: "nonexistent" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

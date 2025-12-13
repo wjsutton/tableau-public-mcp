@@ -200,6 +200,54 @@ export function handleApiError(
 }
 
 /**
+ * Creates a result containing image data for MCP tool responses
+ *
+ * Returns an image content block along with optional metadata text.
+ * The image is returned as base64-encoded data with the specified MIME type.
+ *
+ * @param imageData - Base64-encoded image data
+ * @param mimeType - MIME type of the image (e.g., "image/jpeg")
+ * @param metadata - Optional metadata to include as text content
+ * @returns An Ok result containing the image and metadata
+ *
+ * @example
+ * ```typescript
+ * return createImageResult(base64Data, "image/jpeg", {
+ *   originalSize: 500000,
+ *   processedSize: 50000,
+ *   width: 800,
+ *   height: 600
+ * });
+ * ```
+ */
+export function createImageResult(
+  imageData: string,
+  mimeType: string,
+  metadata?: Record<string, unknown>
+): Ok<CallToolResult> {
+  // Build content array with proper MCP types
+  const content: CallToolResult["content"] = [
+    {
+      type: "image" as const,
+      data: imageData,
+      mimeType
+    }
+  ];
+
+  if (metadata) {
+    content.push({
+      type: "text" as const,
+      text: JSON.stringify(metadata, null, 2)
+    });
+  }
+
+  return Ok({
+    content,
+    isError: false
+  });
+}
+
+/**
  * Validates that required parameters are present
  *
  * @param params - Object containing parameters to validate

@@ -9,8 +9,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { getConfig } from "../../config.js";
 
 /**
  * Parameter schema for searchVisualizations tool
@@ -94,28 +95,31 @@ export function searchVisualizationsTool(server: Server): Tool<typeof paramsSche
 
     callback: async (args: SearchVisualizationsParams): Promise<Ok<CallToolResult>> => {
       const { query, type = "vizzes", count = 20, start = 0, language = "en-us" } = args;
+      const config = getConfig();
 
       try {
-        console.error(`[search_visualizations] Searching for ${type}: "${query}" (start=${start}, count=${count})`);
+        if (config.logLevel === "debug") {
+          console.error(`[search_visualizations] Searching for ${type}: "${query}" (start=${start}, count=${count})`);
+        }
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet<{ results?: unknown[] }>(
           "/api/search/query",
           {
-            params: {
-              query,
-              type,
-              count,
-              start,
-              language
-            }
+            query,
+            type,
+            count,
+            start,
+            language
           }
         );
 
-        const resultCount = response.data?.results?.length || 0;
-        console.error(`[search_visualizations] Found ${resultCount} results for "${query}"`);
+        const resultCount = data?.results?.length || 0;
+        if (config.logLevel === "debug") {
+          console.error(`[search_visualizations] Found ${resultCount} results for "${query}"`);
+        }
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `searching for ${type} with query '${query}'`);

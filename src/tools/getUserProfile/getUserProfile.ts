@@ -10,7 +10,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -74,12 +74,12 @@ export function getUserProfileTool(server: Server): Tool<typeof paramsSchema.sha
       try {
         console.error(`[get_user_profile] Fetching profile for user: ${username}`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(`/profile/api/${username}`);
+        // Call Tableau Public API with caching
+        const data = await cachedGet(`/profile/api/${username}`);
 
         console.error(`[get_user_profile] Successfully retrieved profile for ${username}`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching profile for user '${username}'`);
