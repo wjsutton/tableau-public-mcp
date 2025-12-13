@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getRelatedWorkbooksTool } from "./getRelatedWorkbooks.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getRelatedWorkbooks", () => {
@@ -38,46 +36,33 @@ describe("getRelatedWorkbooks", () => {
       { title: "Similar Dashboard 2", author: "user2" }
     ];
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockRelated,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockRelated);
 
     const result = await tool.callback({
       workbookUrl: "testuser/workbook",
       count: 2
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("Similar Dashboard 1");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("Similar Dashboard 1");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/workbooks/v2/testuser/workbook/recommended-workbooks",
-      { params: { count: 2 } }
+      { count: 2 }
     );
   });
 
   it("should use default count parameter", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: [],
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce([]);
 
     await tool.callback({ workbookUrl: "testuser/workbook" });
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/workbooks/v2/testuser/workbook/recommended-workbooks",
-      { params: { count: 10 } }
+      { count: 10 }
     );
   });
 
@@ -91,13 +76,12 @@ describe("getRelatedWorkbooks", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ workbookUrl: "testuser/nonexistent" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

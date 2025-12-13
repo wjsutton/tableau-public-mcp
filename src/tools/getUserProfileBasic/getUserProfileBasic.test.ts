@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getUserProfileBasicTool } from "./getUserProfileBasic.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
 }));
 
 describe("getUserProfileBasic", () => {
@@ -38,31 +36,20 @@ describe("getUserProfileBasic", () => {
       displayName: "Test User"
     };
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockProfile,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockProfile);
 
     const result = await tool.callback({ username: "testuser" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("testuser");
-      expect(responseText).toContain("Test User");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("testuser");
+    expect(responseText).toContain("Test User");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/authors",
-      {
-        params: {
-          profileName: "testuser"
-        }
-      }
+      { profileName: "testuser" }
     );
   });
 
@@ -76,13 +63,12 @@ describe("getUserProfileBasic", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({ username: "nonexistent" });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

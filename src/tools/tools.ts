@@ -34,6 +34,11 @@ import { getFeaturedAuthorsTool } from "./getFeaturedAuthors/getFeaturedAuthors.
 import { getWorkbookImageTool } from "./getWorkbookImage/getWorkbookImage.js";
 import { getWorkbookThumbnailTool } from "./getWorkbookThumbnail/getWorkbookThumbnail.js";
 
+// TWBX Tools
+import { downloadWorkbookTwbxTool } from "./downloadWorkbookTwbx/downloadWorkbookTwbx.js";
+import { unpackTwbxTool } from "./unpackTwbx/unpackTwbx.js";
+import { getTwbxCalculatedFieldsTool } from "./getTwbxCalculatedFields/getTwbxCalculatedFields.js";
+
 /**
  * Type definition for tool factory functions
  *
@@ -78,7 +83,12 @@ export const toolFactories: ToolFactory[] = [
 
   // Media Tools (2)
   getWorkbookImageTool,
-  getWorkbookThumbnailTool
+  getWorkbookThumbnailTool,
+
+  // TWBX Tools (3)
+  downloadWorkbookTwbxTool,
+  unpackTwbxTool,
+  getTwbxCalculatedFieldsTool
 ];
 
 /**

@@ -10,7 +10,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -89,21 +89,16 @@ export function getUserProfileCategoriesTool(server: Server): Tool<typeof params
       try {
         console.error(`[get_user_profile_categories] Fetching categories for user: ${username} (start=${startIndex}, size=${pageSize})`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet<{ categories?: unknown[] }>(
           `/public/apis/bff/v1/author/${username}/categories`,
-          {
-            params: {
-              startIndex,
-              pageSize
-            }
-          }
+          { startIndex, pageSize }
         );
 
-        const categoryCount = response.data?.categories?.length || 0;
+        const categoryCount = data?.categories?.length || 0;
         console.error(`[get_user_profile_categories] Retrieved ${categoryCount} categories for ${username}`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching categories for user '${username}'`);

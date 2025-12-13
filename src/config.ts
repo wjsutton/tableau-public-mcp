@@ -29,6 +29,36 @@ export interface Config {
    * @default "https://public.tableau.com"
    */
   baseURL: string;
+
+  /**
+   * Enable/disable API response caching
+   * @default true
+   */
+  cacheEnabled: boolean;
+
+  /**
+   * Maximum number of entries per cache
+   * @default 1000
+   */
+  cacheMaxEntries: number;
+
+  /**
+   * Default cache TTL in milliseconds
+   * @default 300000 (5 minutes)
+   */
+  cacheDefaultTTL: number;
+
+  /**
+   * Maximum concurrent API requests for parallel pagination
+   * @default 3
+   */
+  maxConcurrency: number;
+
+  /**
+   * Delay between batch requests in milliseconds (rate limiting)
+   * @default 100
+   */
+  batchDelayMs: number;
 }
 
 /**
@@ -48,6 +78,13 @@ export function getConfig(): Config {
     maxResultLimit: parseInt(process.env.MAX_RESULT_LIMIT || "1000", 10),
     logLevel: (process.env.LOG_LEVEL || "info") as Config["logLevel"],
     apiTimeout: parseInt(process.env.API_TIMEOUT || "30000", 10),
-    baseURL: process.env.TABLEAU_PUBLIC_BASE_URL || "https://public.tableau.com"
+    baseURL: process.env.TABLEAU_PUBLIC_BASE_URL || "https://public.tableau.com",
+    // Cache settings
+    cacheEnabled: process.env.CACHE_ENABLED !== "false",
+    cacheMaxEntries: parseInt(process.env.CACHE_MAX_ENTRIES || "1000", 10),
+    cacheDefaultTTL: parseInt(process.env.CACHE_DEFAULT_TTL || "300000", 10),
+    // Pagination settings
+    maxConcurrency: parseInt(process.env.MAX_CONCURRENCY || "3", 10),
+    batchDelayMs: parseInt(process.env.BATCH_DELAY_MS || "100", 10),
   };
 }

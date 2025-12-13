@@ -9,7 +9,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -73,20 +73,16 @@ export function getRelatedWorkbooksTool(server: Server): Tool<typeof paramsSchem
       try {
         console.error(`[get_related_workbooks] Fetching ${count} related workbooks for: ${workbookUrl}`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get(
+        // Call Tableau Public API with caching
+        const data = await cachedGet<unknown[]>(
           `/public/apis/bff/workbooks/v2/${workbookUrl}/recommended-workbooks`,
-          {
-            params: {
-              count
-            }
-          }
+          { count }
         );
 
-        const relatedCount = response.data?.length || 0;
+        const relatedCount = data?.length || 0;
         console.error(`[get_related_workbooks] Retrieved ${relatedCount} related workbooks`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, `fetching related workbooks for '${workbookUrl}'`);

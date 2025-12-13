@@ -5,12 +5,24 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { getVizOfDayTool } from "./getVizOfDay.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
-vi.mock("../../utils/apiClient.js", () => ({
-  apiClient: {
-    get: vi.fn()
-  }
+vi.mock("../../utils/cachedApiClient.js", () => ({
+  cachedGet: vi.fn()
+}));
+
+vi.mock("../../config.js", () => ({
+  getConfig: vi.fn(() => ({
+    logLevel: "info",
+    cacheEnabled: true,
+    maxResultLimit: 1000,
+    apiTimeout: 30000,
+    baseURL: "https://public.tableau.com",
+    cacheMaxEntries: 1000,
+    cacheDefaultTTL: 300000,
+    maxConcurrency: 3,
+    batchDelayMs: 100,
+  }))
 }));
 
 describe("getVizOfDay", () => {
@@ -28,68 +40,45 @@ describe("getVizOfDay", () => {
 
   it("should have correct metadata", () => {
     expect(tool.name).toBe("get_viz_of_day");
-    expect(tool.description).toContain("Viz of the Day");
+    expect(tool.description).toContain("Visualization of the Day");
     expect(tool.annotations?.title).toBe("Get Viz of the Day");
   });
 
   it("should fetch VOTD winners successfully", async () => {
-    const mockVotd = {
-      vizzes: [
-        { title: "Amazing Dashboard", author: "user1", date: "2024-01-01" },
-        { title: "Beautiful Viz", author: "user2", date: "2024-01-02" }
-      ]
-    };
+    // API returns array directly, not { vizzes: [...] }
+    const mockVotd = [
+      { title: "Amazing Dashboard", authorDisplayName: "user1", curatedAt: "2024-01-01T00:00:00.000Z" },
+      { title: "Beautiful Viz", authorDisplayName: "user2", curatedAt: "2024-01-02T00:00:00.000Z" }
+    ];
 
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: mockVotd,
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockVotd);
 
     const result = await tool.callback({});
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(false);
-      const responseText = result.value.content[0].text;
-      expect(responseText).toContain("Amazing Dashboard");
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("Amazing Dashboard");
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/discover/v1/vizzes/viz-of-the-day",
-      {
-        params: {
-          page: 0,
-          limit: 12
-        }
-      }
+      { page: 0, limit: 12 }
     );
   });
 
   it("should support pagination", async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: { vizzes: [] },
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      config: {} as any
-    });
+    vi.mocked(cachedGet).mockResolvedValueOnce([]);
 
     await tool.callback({
       page: 2,
-      limit: 10
+      limit: 10 // Should still use 12 since API requires it
     });
 
-    expect(apiClient.get).toHaveBeenCalledWith(
+    // API always uses limit=12 regardless of requested limit
+    expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/discover/v1/vizzes/viz-of-the-day",
-      {
-        params: {
-          page: 2,
-          limit: 10
-        }
-      }
+      { page: 2, limit: 12 }
     );
   });
 
@@ -103,13 +92,12 @@ describe("getVizOfDay", () => {
       isAxiosError: true
     };
 
-    vi.mocked(apiClient.get).mockRejectedValueOnce(error);
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
     const result = await tool.callback({});
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.isError).toBe(true);
-    }
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(true);
   });
 });

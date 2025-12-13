@@ -9,7 +9,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { apiClient } from "../../utils/apiClient.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 
 /**
@@ -67,13 +67,13 @@ export function getFeaturedAuthorsTool(server: Server): Tool<typeof paramsSchema
       try {
         console.error(`[get_featured_authors] Fetching featured authors`);
 
-        // Call Tableau Public API
-        const response = await apiClient.get("/s/authors/list/feed");
+        // Call Tableau Public API with caching
+        const data = await cachedGet<{ authors?: unknown[] }>("/s/authors/list/feed");
 
-        const authorCount = response.data?.authors?.length || response.data?.length || 0;
+        const authorCount = data?.authors?.length || (Array.isArray(data) ? data.length : 0);
         console.error(`[get_featured_authors] Retrieved ${authorCount} featured authors`);
 
-        return createSuccessResult(response.data);
+        return createSuccessResult(data);
 
       } catch (error) {
         return handleApiError(error, "fetching featured authors");

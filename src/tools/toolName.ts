@@ -36,7 +36,12 @@ export const TOOL_NAMES = [
 
   // Media Tools
   "get_workbook_image",
-  "get_workbook_thumbnail"
+  "get_workbook_thumbnail",
+
+  // TWBX Tools
+  "download_workbook_twbx",
+  "unpack_twbx",
+  "get_twbx_calculated_fields"
 ] as const;
 
 /**
