@@ -28,10 +28,10 @@ const paramsSchema = z.object({
   count: z.number()
     .int()
     .min(1)
-    .max(100)
+    .max(24)
     .optional()
     .default(24)
-    .describe("Number of following accounts to return (default: 24, max: 100)")
+    .describe("Number of following accounts to return (default: 24, max: 24)")
 });
 
 type GetFollowingParams = z.infer<typeof paramsSchema>;
@@ -68,7 +68,7 @@ export function getFollowingTool(server: Server): Tool<typeof paramsSchema.shape
     description: "Retrieves the list of accounts a Tableau Public user is following. " +
       "Returns usernames, metadata (display names, bios), and latest workbook details " +
       "for each followed account. Supports pagination with index and count parameters. " +
-      "Default returns 24 accounts per request (max 100). " +
+      "Default returns 24 accounts per request (max 24). " +
       "The index parameter increments by count for pagination (e.g., 0, 24, 48). " +
       "Useful for understanding user interests and discovering related content creators.",
     paramsSchema: paramsSchema.shape,

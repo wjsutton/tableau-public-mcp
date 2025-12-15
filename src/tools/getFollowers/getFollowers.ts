@@ -28,10 +28,10 @@ const paramsSchema = z.object({
   count: z.number()
     .int()
     .min(1)
-    .max(100)
+    .max(24)
     .optional()
     .default(24)
-    .describe("Number of followers to return (default: 24, max: 100)")
+    .describe("Number of followers to return (default: 24, max: 24)")
 });
 
 type GetFollowersParams = z.infer<typeof paramsSchema>;
@@ -68,7 +68,7 @@ export function getFollowersTool(server: Server): Tool<typeof paramsSchema.shape
     description: "Retrieves the list of followers for a Tableau Public user. " +
       "Returns follower usernames, metadata (display names, bios), and their latest workbook details. " +
       "Supports pagination with index and count parameters. " +
-      "Default returns 24 followers per request (max 100). " +
+      "Default returns 24 followers per request (max 24). " +
       "The index parameter increments by count for pagination (e.g., 0, 24, 48). " +
       "Useful for analyzing user communities and discovering related authors.",
     paramsSchema: paramsSchema.shape,
