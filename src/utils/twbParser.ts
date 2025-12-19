@@ -141,12 +141,60 @@ export const TWB_PARSER_OPTIONS = {
   attributeNamePrefix: "@_",
   allowBooleanAttributes: true,
   parseAttributeValue: false,
-  trimValues: true
+  trimValues: true,
+  ignoreDeclaration: true,       // Handle <?xml ...?> declarations
+  processEntities: false         // Don't process HTML entities (we do it manually)
 };
 
 /** Creates configured XMLParser instance */
 export function createTwbParser(): XMLParser {
   return new XMLParser(TWB_PARSER_OPTIONS);
+}
+
+/** Strip UTF-8 BOM (Byte Order Mark) from string if present */
+export function stripBom(content: string): string {
+  // UTF-8 BOM is represented as \uFEFF at the start of a string
+  if (content.charCodeAt(0) === 0xFEFF) {
+    return content.slice(1);
+  }
+  return content;
+}
+
+/** Result type for parseTwbContent */
+export type ParseTwbResult = {
+  success: true;
+  data: Record<string, unknown>;
+} | {
+  success: false;
+  error: string;
+  preview: string;
+};
+
+/**
+ * Parse TWB XML content with proper preprocessing
+ *
+ * Handles common issues like UTF-8 BOM and provides enhanced error messages.
+ *
+ * @param content - Raw file content from fs.readFile
+ * @returns Parse result with either data or error details
+ */
+export function parseTwbContent(content: string): ParseTwbResult {
+  try {
+    // 1. Strip BOM if present
+    const cleaned = stripBom(content);
+
+    // 2. Create parser and parse
+    const parser = createTwbParser();
+    const parsed = parser.parse(cleaned) as Record<string, unknown>;
+
+    return { success: true, data: parsed };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      preview: content.substring(0, 200).replace(/\n/g, "\\n")
+    };
+  }
 }
 
 // ============================================

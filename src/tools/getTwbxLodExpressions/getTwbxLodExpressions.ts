@@ -15,7 +15,7 @@ import { Tool } from "../tool.js";
 import { createSuccessResult, createErrorResult } from "../../utils/errorHandling.js";
 import { fileExists } from "../../utils/fileSystem.js";
 import {
-  createTwbParser,
+  parseTwbContent,
   ensureArray,
   decodeHtmlEntities,
   parseLodExpressions,
@@ -335,22 +335,21 @@ export function getTwbxLodExpressionsTool(server: Server): Tool<typeof paramsSch
 
         // Read and parse the TWB file
         const twbContent = await fs.readFile(twbFilePath, "utf-8");
-        const parser = createTwbParser();
+        const parseResult = parseTwbContent(twbContent);
 
-        let parsed;
-        try {
-          parsed = parser.parse(twbContent);
-        } catch (parseError) {
+        if (!parseResult.success) {
           return createErrorResult(
             "Failed to parse TWB XML",
             {
               twbFilePath,
-              error: parseError instanceof Error ? parseError.message : String(parseError)
+              error: parseResult.error,
+              filePreview: parseResult.preview
             }
           );
         }
 
-        const workbook = parsed?.workbook;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const workbook = (parseResult.data as any)?.workbook;
         if (!workbook) {
           return createErrorResult(
             "Invalid TWB file structure",

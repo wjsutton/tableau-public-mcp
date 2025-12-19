@@ -91,12 +91,29 @@ function registerTools(server: Server): void {
 
       console.error(`[Server] Calling tool: ${toolName}`);
 
-      // Parse and validate arguments through Zod schema
-      // This handles type coercion (e.g., string "800" -> number 800)
-      const validatedArgs = tool.parseArgs(request.params.arguments || {});
+      try {
+        // Parse and validate arguments through Zod schema
+        // This handles type coercion (e.g., string "800" -> number 800)
+        const validatedArgs = tool.parseArgs(request.params.arguments || {});
 
-      const result = await tool.callback(validatedArgs);
-      return result.value;
+        const result = await tool.callback(validatedArgs);
+        return result.value;
+      } catch (error) {
+        // Catch any unhandled exceptions and return a proper error response
+        console.error(`[Server] Tool ${toolName} threw an exception:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: Tool execution failed\n\nDetails: ${errorMessage}${errorStack ? `\n\nStack trace:\n${errorStack}` : ""}`
+            }
+          ],
+          isError: true
+        };
+      }
     });
 
     console.error(`[Server] Successfully registered ${tools.length} tools`);
