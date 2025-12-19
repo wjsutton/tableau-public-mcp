@@ -24,14 +24,14 @@ const paramsSchema = z.object({
     .optional()
     .default("vizzes")
     .describe("Type of content to search: 'vizzes' (visualizations) or 'authors' (default: vizzes)"),
-  count: z.number()
+  count: z.coerce.number()
     .int()
     .min(1)
     .max(100)
     .optional()
     .default(20)
     .describe("Number of results to return (default: 20, max: 100)"),
-  start: z.number()
+  start: z.coerce.number()
     .int()
     .min(0)
     .optional()
@@ -104,7 +104,7 @@ export function searchVisualizationsTool(server: Server): Tool<typeof paramsSche
 
         // Call Tableau Public API with caching
         const data = await cachedGet<{ results?: unknown[] }>(
-          "/api/search/query",
+          "/public/apis/bff/v1/search/query-workbooks",
           {
             query,
             type,

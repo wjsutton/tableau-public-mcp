@@ -19,19 +19,19 @@ const paramsSchema = z.object({
   username: z.string()
     .min(1, "Username cannot be empty")
     .describe("Tableau Public username to retrieve workbooks for"),
-  start: z.number()
+  start: z.coerce.number()
     .int()
     .min(0)
     .optional()
     .default(0)
     .describe("Start index for pagination (default: 0)"),
-  count: z.number()
+  count: z.coerce.number()
     .int()
     .min(1)
-    .max(100)
+    .max(50)
     .optional()
     .default(50)
-    .describe("Number of workbooks to return (default: 50, max: 100)"),
+    .describe("Number of workbooks to return (default: 50, max: 50)"),
   visibility: z.enum(["NON_HIDDEN", "ALL"])
     .optional()
     .default("NON_HIDDEN")
@@ -75,7 +75,7 @@ export function getWorkbooksListTool(server: Server): Tool<typeof paramsSchema.s
     description: "Retrieves a paginated list of workbooks for a Tableau Public user. " +
       "Returns workbook metadata including titles, view counts, publication dates, " +
       "thumbnails, and sheet counts. Supports pagination with start and count parameters " +
-      "(max 100 per request). Use visibility filter to include or exclude hidden workbooks. " +
+      "(max 50 per request). Use visibility filter to include or exclude hidden workbooks. " +
       "Useful for browsing a user's complete workbook portfolio.",
     paramsSchema: paramsSchema.shape,
     annotations: {

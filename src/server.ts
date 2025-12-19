@@ -91,7 +91,11 @@ function registerTools(server: Server): void {
 
       console.error(`[Server] Calling tool: ${toolName}`);
 
-      const result = await tool.callback(request.params.arguments || {});
+      // Parse and validate arguments through Zod schema
+      // This handles type coercion (e.g., string "800" -> number 800)
+      const validatedArgs = tool.parseArgs(request.params.arguments || {});
+
+      const result = await tool.callback(validatedArgs);
       return result.value;
     });
 

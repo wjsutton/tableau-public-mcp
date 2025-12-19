@@ -7,7 +7,7 @@
  * @example
  * ```typescript
  * // Use instead of direct apiClient.get()
- * const data = await cachedGet<SearchResults>('/api/search/query', { query: 'test' });
+ * const data = await cachedGet<SearchResults>('/public/apis/bff/v1/search/query-workbooks', { query: 'test' });
  *
  * // Force fresh data
  * const fresh = await cachedGet<Profile>('/profile/api/john', undefined, { bypassCache: true });
@@ -92,7 +92,7 @@ const ENDPOINT_CACHE_MAP: CacheMapping[] = [
 
   // Search endpoints
   {
-    pattern: /^\/api\/search\//,
+    pattern: /^\/public\/apis\/bff\/v1\/search\//,
     getCache: getSearchCache,
     ttl: TTL.SEARCH,
     name: "search",
@@ -139,10 +139,10 @@ function getCacheMapping(endpoint: string): CacheMapping | null {
  * @example
  * ```typescript
  * // Normal usage - will use cache
- * const results = await cachedGet('/api/search/query', { query: 'COVID' });
+ * const results = await cachedGet('/public/apis/bff/v1/search/query-workbooks', { query: 'COVID' });
  *
  * // Bypass cache for fresh data
- * const fresh = await cachedGet('/api/search/query', { query: 'COVID' }, { bypassCache: true });
+ * const fresh = await cachedGet('/public/apis/bff/v1/search/query-workbooks', { query: 'COVID' }, { bypassCache: true });
  * ```
  */
 export async function cachedGet<T>(
@@ -204,7 +204,7 @@ export async function cachedGet<T>(
  * invalidateCache(/\/profile\/api\/john/);
  *
  * // Invalidate all search results
- * invalidateCache(/\/api\/search\//);
+ * invalidateCache(/\/public\/apis\/bff\/v1\/search\//);
  * ```
  */
 export function invalidateCache(endpointPattern: RegExp): number {

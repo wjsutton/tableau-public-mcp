@@ -8,7 +8,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
-import { z, ZodRawShape } from "zod";
+import { z, ZodRawShape, ZodObject } from "zod";
 
 /**
  * Parameters for constructing a Tool instance
@@ -118,6 +118,12 @@ export class Tool<Args extends ZodRawShape | undefined> {
   ) => Promise<Ok<CallToolResult>>;
 
   /**
+   * Full Zod schema for validating and coercing input parameters.
+   * Created from the paramsSchema shape to enable runtime validation.
+   */
+  private readonly zodSchema: Args extends ZodRawShape ? ZodObject<Args> : null;
+
+  /**
    * Constructs a new Tool instance
    *
    * @param params - Tool configuration parameters
@@ -129,6 +135,27 @@ export class Tool<Args extends ZodRawShape | undefined> {
     this.paramsSchema = params.paramsSchema;
     this.annotations = params.annotations;
     this.callback = params.callback;
+
+    // Create full Zod schema from shape for runtime validation
+    this.zodSchema = (params.paramsSchema
+      ? z.object(params.paramsSchema as ZodRawShape)
+      : null) as Args extends ZodRawShape ? ZodObject<Args> : null;
+  }
+
+  /**
+   * Parses and validates input arguments using the Zod schema.
+   * Performs type coercion (e.g., string "800" -> number 800) when
+   * the schema uses z.coerce types.
+   *
+   * @param args - Raw input arguments from MCP request
+   * @returns Validated and coerced arguments
+   * @throws ZodError if validation fails
+   */
+  public parseArgs(args: unknown): Args extends ZodRawShape ? z.infer<ZodObject<Args>> : Record<string, never> {
+    if (!this.zodSchema) {
+      return {} as Args extends ZodRawShape ? z.infer<ZodObject<Args>> : Record<string, never>;
+    }
+    return this.zodSchema.parse(args) as Args extends ZodRawShape ? z.infer<ZodObject<Args>> : Record<string, never>;
   }
 
   /**

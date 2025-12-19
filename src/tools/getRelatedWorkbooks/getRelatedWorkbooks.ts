@@ -19,7 +19,7 @@ const paramsSchema = z.object({
   workbookUrl: z.string()
     .min(1, "Workbook URL cannot be empty")
     .describe("Workbook repository URL (e.g., 'username/workbook-name')"),
-  count: z.number()
+  count: z.coerce.number()
     .int()
     .min(1)
     .max(20)
