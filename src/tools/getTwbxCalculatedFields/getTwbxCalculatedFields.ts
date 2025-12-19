@@ -11,10 +11,15 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { XMLParser } from "fast-xml-parser";
 import { Tool } from "../tool.js";
 import { createSuccessResult, createErrorResult } from "../../utils/errorHandling.js";
 import { fileExists } from "../../utils/fileSystem.js";
+import {
+  createTwbParser,
+  decodeHtmlEntities,
+  extractFieldReferences,
+  ensureArray
+} from "../../utils/twbParser.js";
 
 /**
  * Represents a calculated field extracted from the workbook
@@ -73,38 +78,6 @@ const paramsSchema = z.object({
 type GetTwbxCalculatedFieldsParams = z.infer<typeof paramsSchema>;
 
 /**
- * Extract field references from a formula
- */
-function extractFieldReferences(formula: string): string[] {
-  const references: string[] = [];
-  // Match [field.name] or [Parameters].[param] patterns
-  const fieldPattern = /\[([^\]]+)\]/g;
-  let match;
-  while ((match = fieldPattern.exec(formula)) !== null) {
-    const ref = match[1];
-    // Skip pure Parameters prefix, keep the actual parameter name
-    if (ref !== "Parameters" && !references.includes(ref)) {
-      references.push(ref);
-    }
-  }
-  return references;
-}
-
-/**
- * Decode HTML entities in formula text
- */
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#10;/g, "\n")
-    .replace(/&#13;/g, "\r");
-}
-
-/**
  * Parse columns from a datasource
  */
 function parseColumns(
@@ -118,26 +91,26 @@ function parseColumns(
   if (!columns) return { calculatedFields, sourceFields };
 
   // Ensure columns is an array
-  const columnArray = Array.isArray(columns) ? columns : [columns];
+  const columnArray = ensureArray(columns);
 
   for (const col of columnArray) {
     if (!col || typeof col !== "object") continue;
+    const colObj = col as Record<string, unknown>;
 
-    const attrs = col["@_name"] ? col : col;
-    const name = attrs["@_name"] || "";
-    const caption = attrs["@_caption"] || name;
-    const datatype = attrs["@_datatype"] || "unknown";
-    const role = attrs["@_role"] || "unknown";
-    const type = attrs["@_type"] || "unknown";
-    const hidden = attrs["@_hidden"] === "true";
+    const name = (colObj["@_name"] as string) || "";
+    const caption = (colObj["@_caption"] as string) || name;
+    const datatype = (colObj["@_datatype"] as string) || "unknown";
+    const role = (colObj["@_role"] as string) || "unknown";
+    const type = (colObj["@_type"] as string) || "unknown";
+    const hidden = colObj["@_hidden"] === "true";
 
     // Skip if hidden and not including hidden
     if (hidden && !includeHidden) continue;
 
     // Check if it has a calculation
-    const calculation = col["calculation"];
+    const calculation = colObj["calculation"] as Record<string, unknown> | undefined;
     if (calculation) {
-      const formula = calculation["@_formula"] || "";
+      const formula = (calculation["@_formula"] as string) || "";
       if (formula) {
         calculatedFields.push({
           name: name.replace(/[\[\]]/g, ""),
@@ -174,23 +147,27 @@ function parseParameters(columns: unknown): Parameter[] {
 
   if (!columns) return parameters;
 
-  const columnArray = Array.isArray(columns) ? columns : [columns];
+  const columnArray = ensureArray(columns);
 
   for (const col of columnArray) {
     if (!col || typeof col !== "object") continue;
+    const colObj = col as Record<string, unknown>;
 
-    const name = col["@_name"] || "";
-    const caption = col["@_caption"] || name;
-    const datatype = col["@_datatype"] || "unknown";
-    const value = col["@_value"] || "";
+    const name = (colObj["@_name"] as string) || "";
+    const caption = (colObj["@_caption"] as string) || name;
+    const datatype = (colObj["@_datatype"] as string) || "unknown";
+    const value = (colObj["@_value"] as string) || "";
 
     // Get allowed values from members
     const allowedValues: string[] = [];
-    const members = col["members"]?.["member"];
+    const membersContainer = colObj["members"] as Record<string, unknown> | undefined;
+    const members = membersContainer?.["member"];
     if (members) {
-      const memberArray = Array.isArray(members) ? members : [members];
+      const memberArray = ensureArray(members);
       for (const member of memberArray) {
-        const alias = member["@_alias"] || member["@_value"] || "";
+        if (!member || typeof member !== "object") continue;
+        const memberObj = member as Record<string, unknown>;
+        const alias = (memberObj["@_alias"] as string) || (memberObj["@_value"] as string) || "";
         if (alias && !allowedValues.includes(alias)) {
           allowedValues.push(alias);
         }
@@ -259,14 +236,7 @@ export function getTwbxCalculatedFieldsTool(server: Server): Tool<typeof paramsS
 
         // Read and parse the TWB file
         const twbContent = await fs.readFile(twbFilePath, "utf-8");
-
-        const parser = new XMLParser({
-          ignoreAttributes: false,
-          attributeNamePrefix: "@_",
-          allowBooleanAttributes: true,
-          parseAttributeValue: false,
-          trimValues: true
-        });
+        const parser = createTwbParser();
 
         let parsed;
         try {
@@ -299,7 +269,7 @@ export function getTwbxCalculatedFieldsTool(server: Server): Tool<typeof paramsS
 
         const datasources = workbook.datasources?.datasource;
         if (datasources) {
-          const dsArray = Array.isArray(datasources) ? datasources : [datasources];
+          const dsArray = ensureArray(datasources);
 
           for (const ds of dsArray) {
             const dsName = ds["@_name"] || ds["@_caption"] || "Unknown";

@@ -41,7 +41,10 @@ export const TOOL_NAMES = [
   // TWBX Tools
   "download_workbook_twbx",
   "unpack_twbx",
-  "get_twbx_calculated_fields"
+  "get_twbx_calculated_fields",
+  "get_twbx_workbook_structure",
+  "get_twbx_calculation_dependencies",
+  "get_twbx_lod_expressions"
 ] as const;
 
 /**
