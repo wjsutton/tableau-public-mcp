@@ -19,13 +19,13 @@ const paramsSchema = z.object({
   username: z.string()
     .min(1, "Username cannot be empty")
     .describe("Tableau Public username to retrieve workbooks for"),
-  start: z.number()
+  start: z.coerce.number()
     .int()
     .min(0)
     .optional()
     .default(0)
     .describe("Start index for pagination (default: 0)"),
-  count: z.number()
+  count: z.coerce.number()
     .int()
     .min(1)
     .max(50)

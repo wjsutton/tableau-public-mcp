@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
+import { AxiosError } from "axios";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
@@ -20,13 +21,13 @@ const paramsSchema = z.object({
   username: z.string()
     .min(1, "Username cannot be empty")
     .describe("Tableau Public username to retrieve categories for"),
-  startIndex: z.number()
+  startIndex: z.coerce.number()
     .int()
     .min(0)
     .optional()
     .default(0)
     .describe("Starting index for pagination (default: 0)"),
-  pageSize: z.number()
+  pageSize: z.coerce.number()
     .int()
     .min(1)
     .max(500)
@@ -101,6 +102,14 @@ export function getUserProfileCategoriesTool(server: Server): Tool<typeof params
         return createSuccessResult(data);
 
       } catch (error) {
+        // Handle 404 gracefully - user may not have categories set up
+        if (error instanceof AxiosError && error.response?.status === 404) {
+          console.error(`[get_user_profile_categories] No categories found for user '${username}' (404) - returning empty categories`);
+          return createSuccessResult({
+            categories: [],
+            message: `No categories found for user '${username}'. This user may not have set up profile categories. Use get_workbooks_list instead to view their workbooks.`
+          });
+        }
         return handleApiError(error, `fetching categories for user '${username}'`);
       }
     }

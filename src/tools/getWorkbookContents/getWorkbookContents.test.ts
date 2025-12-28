@@ -40,7 +40,7 @@ describe("getWorkbookContents", () => {
 
     vi.mocked(cachedGet).mockResolvedValueOnce(mockContents);
 
-    const result = await tool.callback({ workbookUrl: "testuser/workbook" });
+    const result = await tool.callback({ workbookName: "TestWorkbook_12345" });
 
     expect(result.isOk()).toBe(true);
     const value = result.unwrap();
@@ -50,7 +50,7 @@ describe("getWorkbookContents", () => {
     expect(responseText).toContain("Sheet 1");
 
     expect(cachedGet).toHaveBeenCalledWith(
-      "/profile/api/workbook/testuser/workbook"
+      "/profile/api/workbook/TestWorkbook_12345"
     );
   });
 
@@ -60,13 +60,13 @@ describe("getWorkbookContents", () => {
         status: 404,
         statusText: "Not Found"
       },
-      config: { url: "/profile/api/workbook/testuser/nonexistent" },
+      config: { url: "/profile/api/workbook/NonexistentWorkbook" },
       isAxiosError: true
     };
 
     vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
-    const result = await tool.callback({ workbookUrl: "testuser/nonexistent" });
+    const result = await tool.callback({ workbookName: "NonexistentWorkbook" });
 
     expect(result.isOk()).toBe(true);
     const value = result.unwrap();

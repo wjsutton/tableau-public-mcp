@@ -19,32 +19,32 @@ import { getConfig } from "../../config.js";
  * Parameter schema for getVizOfDay tool
  */
 const paramsSchema = z.object({
-  page: z.number()
+  page: z.coerce.number()
     .int()
     .min(0)
     .optional()
     .default(0)
     .describe("Page number for pagination (default: 0)"),
-  limit: z.number()
+  limit: z.coerce.number()
     .int()
     .min(1)
     .max(12)
     .optional()
     .default(12)
     .describe("Number of VOTD entries per page (default: 12, max: 12)"),
-  maxResults: z.number()
+  maxResults: z.coerce.number()
     .int()
     .min(1)
     .max(500)
     .optional()
     .describe("Total VOTD entries to fetch using parallel pagination (max: 500). If specified, fetches multiple pages in parallel."),
-  filterMonth: z.number()
+  filterMonth: z.coerce.number()
     .int()
     .min(1)
     .max(12)
     .optional()
     .describe("Filter results to a specific month (1-12). Use with filterYear."),
-  filterYear: z.number()
+  filterYear: z.coerce.number()
     .int()
     .min(2015)
     .optional()

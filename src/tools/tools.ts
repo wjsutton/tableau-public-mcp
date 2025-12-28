@@ -41,6 +41,7 @@ import { getTwbxCalculatedFieldsTool } from "./getTwbxCalculatedFields/getTwbxCa
 import { getTwbxWorkbookStructureTool } from "./getTwbxWorkbookStructure/getTwbxWorkbookStructure.js";
 import { getTwbxCalculationDependenciesTool } from "./getTwbxCalculationDependencies/getTwbxCalculationDependencies.js";
 import { getTwbxLodExpressionsTool } from "./getTwbxLodExpressions/getTwbxLodExpressions.js";
+import { getTwbxDataProfileTool } from "./getTwbxDataProfile/getTwbxDataProfile.js";
 
 /**
  * Type definition for tool factory functions
@@ -88,13 +89,14 @@ export const toolFactories: ToolFactory[] = [
   getWorkbookImageTool,
   getWorkbookThumbnailTool,
 
-  // TWBX Tools (6)
+  // TWBX Tools (7)
   downloadWorkbookTwbxTool,
   unpackTwbxTool,
   getTwbxCalculatedFieldsTool,
   getTwbxWorkbookStructureTool,
   getTwbxCalculationDependenciesTool,
-  getTwbxLodExpressionsTool
+  getTwbxLodExpressionsTool,
+  getTwbxDataProfileTool
 ];
 
 /**

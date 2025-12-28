@@ -32,13 +32,16 @@
     "adm-zip": "^0.5.16",
     "axios": "^1.7.9",
     "fast-xml-parser": "^4.5.1",
+    "papaparse": "^5.5.3",
     "sharp": "^0.34.5",
     "ts-results-es": "^4.2.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^20.17.10",
+    "@types/papaparse": "^5.5.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "@vitest/coverage-v8": "^1.6.0",

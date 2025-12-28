@@ -80,19 +80,54 @@ describe("getUserProfileCategories", () => {
     );
   });
 
-  it("should handle errors gracefully", async () => {
-    const error = {
-      response: {
+  it("should return empty categories on 404 (user has no categories)", async () => {
+    const { AxiosError } = await import("axios");
+    const error = new AxiosError(
+      "Not Found",
+      "ERR_BAD_REQUEST",
+      undefined,
+      undefined,
+      {
         status: 404,
-        statusText: "Not Found"
-      },
-      config: { url: "/public/apis/bff/v1/author/nonexistent/categories" },
-      isAxiosError: true
-    };
+        statusText: "Not Found",
+        data: {},
+        headers: {},
+        config: {} as never
+      }
+    );
 
     vi.mocked(cachedGet).mockRejectedValueOnce(error);
 
-    const result = await tool.callback({ username: "nonexistent" });
+    const result = await tool.callback({ username: "userWithoutCategories" });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("categories");
+    expect(responseText).toContain("[]");
+    expect(responseText).toContain("get_workbooks_list");
+  });
+
+  it("should handle other errors gracefully", async () => {
+    const { AxiosError } = await import("axios");
+    const error = new AxiosError(
+      "Server Error",
+      "ERR_BAD_RESPONSE",
+      undefined,
+      undefined,
+      {
+        status: 500,
+        statusText: "Internal Server Error",
+        data: {},
+        headers: {},
+        config: {} as never
+      }
+    );
+
+    vi.mocked(cachedGet).mockRejectedValueOnce(error);
+
+    const result = await tool.callback({ username: "testuser" });
 
     expect(result.isOk()).toBe(true);
     const value = result.unwrap();

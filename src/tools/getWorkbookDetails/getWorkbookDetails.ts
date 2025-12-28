@@ -16,9 +16,9 @@ import { createSuccessResult, handleApiError } from "../../utils/errorHandling.j
  * Parameter schema for getWorkbookDetails tool
  */
 const paramsSchema = z.object({
-  workbookUrl: z.string()
-    .min(1, "Workbook URL cannot be empty")
-    .describe("Workbook repository URL (e.g., 'username/workbook-name')")
+  workbookName: z.string()
+    .min(1, "Workbook name cannot be empty")
+    .describe("The workbook name from the Tableau Public URL (e.g., 'GloboxABTestAnalysis_17009696417070')")
 });
 
 type GetWorkbookDetailsParams = z.infer<typeof paramsSchema>;
@@ -40,7 +40,7 @@ type GetWorkbookDetailsParams = z.infer<typeof paramsSchema>;
  * ```typescript
  * // Request
  * {
- *   "workbookUrl": "datavizblog/sales-dashboard"
+ *   "workbookName": "GloboxABTestAnalysis_17009696417070"
  * }
  *
  * // Response includes detailed workbook metadata
@@ -53,7 +53,7 @@ export function getWorkbookDetailsTool(server: Server): Tool<typeof paramsSchema
     description: "Retrieves detailed metadata for a single Tableau Public workbook. " +
       "Returns comprehensive information including workbook title, description, " +
       "view names and types, publication dates, author information, and view statistics. " +
-      "Requires the workbook repository URL in the format 'username/workbook-name'. " +
+      "Requires the workbook name from the Tableau Public URL (e.g., 'GloboxABTestAnalysis_17009696417070'). " +
       "Useful for getting complete information about a specific workbook.",
     paramsSchema: paramsSchema.shape,
     annotations: {
@@ -61,22 +61,22 @@ export function getWorkbookDetailsTool(server: Server): Tool<typeof paramsSchema
     },
 
     callback: async (args: GetWorkbookDetailsParams): Promise<Ok<CallToolResult>> => {
-      const { workbookUrl } = args;
+      const { workbookName } = args;
 
       try {
-        console.error(`[get_workbook_details] Fetching details for workbook: ${workbookUrl}`);
+        console.error(`[get_workbook_details] Fetching details for workbook: ${workbookName}`);
 
         // Call Tableau Public API with caching
         const data = await cachedGet(
-          `/profile/api/single_workbook/${workbookUrl}`
+          `/profile/api/single_workbook/${workbookName}`
         );
 
-        console.error(`[get_workbook_details] Successfully retrieved details for ${workbookUrl}`);
+        console.error(`[get_workbook_details] Successfully retrieved details for ${workbookName}`);
 
         return createSuccessResult(data);
 
       } catch (error) {
-        return handleApiError(error, `fetching details for workbook '${workbookUrl}'`);
+        return handleApiError(error, `fetching details for workbook '${workbookName}'`);
       }
     }
   });
