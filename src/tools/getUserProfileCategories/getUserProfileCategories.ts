@@ -92,7 +92,7 @@ export function getUserProfileCategoriesTool(server: Server): Tool<typeof params
 
         // Call Tableau Public API with caching
         const data = await cachedGet<{ categories?: unknown[] }>(
-          `/public/apis/bff/v1/author/${username}/categories`,
+          `/public/apis/bff/v2/author/${username}/categories`,
           { startIndex, pageSize }
         );
 

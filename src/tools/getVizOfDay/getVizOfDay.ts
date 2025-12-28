@@ -111,7 +111,7 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
           const allVizzes = await paginateByPageParallel(
             async (pageNum: number, _pageLimit: number) => {
               const data = await cachedGet<unknown[]>(
-                "/public/apis/bff/discover/v1/vizzes/viz-of-the-day",
+                "/public/apis/bff/discover/v2/vizzes/viz-of-the-day",
                 { page: pageNum, limit: 12 }
               );
               return data || [];
@@ -156,7 +156,7 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
         }
 
         const data = await cachedGet<unknown[]>(
-          "/public/apis/bff/discover/v1/vizzes/viz-of-the-day",
+          "/public/apis/bff/discover/v2/vizzes/viz-of-the-day",
           { page, limit: 12 }
         );
 
