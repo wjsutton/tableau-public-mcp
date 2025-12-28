@@ -103,11 +103,15 @@ export function searchVisualizationsTool(server: Server): Tool<typeof paramsSche
         }
 
         // Call Tableau Public API with caching
+        // Use separate endpoints based on search type
+        const endpoint = type === "vizzes"
+          ? "/public/apis/bff/v1/search/query-workbooks"
+          : "/public/apis/bff/v1/search/query-authors";
+
         const data = await cachedGet<{ results?: unknown[] }>(
-          "/api/search/query",
+          endpoint,
           {
             query,
-            type,
             count,
             start,
             language
