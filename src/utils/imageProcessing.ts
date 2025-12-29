@@ -7,6 +7,7 @@
 
 import sharp from "sharp";
 import axios from "axios";
+import * as fs from "fs/promises";
 
 /**
  * Result of processing an image
@@ -28,6 +29,32 @@ export interface ProcessedImage {
   estimatedTokens: number;
   /** Compression ratio achieved */
   compressionRatio: number;
+}
+
+/**
+ * Result of processing and saving an image to disk
+ */
+export interface SavedImage {
+  /** Absolute path to the saved file */
+  filePath: string;
+  /** MIME type of the saved image */
+  mimeType: string;
+  /** Original image size in bytes */
+  originalSize: number;
+  /** Processed image size in bytes */
+  processedSize: number;
+  /** Width of processed image */
+  width: number;
+  /** Height of processed image */
+  height: number;
+  /** Original width before processing */
+  originalWidth: number;
+  /** Original height before processing */
+  originalHeight: number;
+  /** Compression ratio achieved */
+  compressionRatio: number;
+  /** Whether image was resized (vs just compressed) */
+  wasResized: boolean;
 }
 
 /**
@@ -138,6 +165,106 @@ export async function fetchAndOptimizeImage(
     height: processedMetadata.height || opts.maxHeight,
     estimatedTokens,
     compressionRatio: originalSize / processedSize,
+  };
+}
+
+/**
+ * Fetches an image, optimizes it, and saves it to the filesystem
+ *
+ * Similar to fetchAndOptimizeImage but saves to disk instead of returning base64.
+ * More efficient for large images and integrates with file-based workflows.
+ *
+ * @param imageUrl - URL of the image to fetch
+ * @param outputPath - Absolute path where the image should be saved
+ * @param options - Optimization options
+ * @returns Saved image metadata including file path and compression stats
+ *
+ * @example
+ * ```typescript
+ * const result = await fetchResizeAndSave(
+ *   "https://public.tableau.com/views/...",
+ *   "/tmp/tableau-public-mcp/images/viz_123.jpeg",
+ *   { maxWidth: 768, maxHeight: 768, quality: 85, format: "jpeg" }
+ * );
+ * console.log(`Saved to ${result.filePath}`);
+ * ```
+ */
+export async function fetchResizeAndSave(
+  imageUrl: string,
+  outputPath: string,
+  options?: ImageOptimizationOptions
+): Promise<SavedImage> {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
+  // Fetch the image
+  const response = await axios.get(imageUrl, {
+    responseType: "arraybuffer",
+    timeout: 30000,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+  });
+
+  const originalBuffer = Buffer.from(response.data);
+  const originalSize = originalBuffer.length;
+
+  // Get original image metadata
+  const originalMetadata = await sharp(originalBuffer).metadata();
+  const originalWidth = originalMetadata.width || 0;
+  const originalHeight = originalMetadata.height || 0;
+
+  // Process with Sharp
+  let sharpInstance = sharp(originalBuffer);
+
+  // Resize to fit within bounds while maintaining aspect ratio
+  // fit: "inside" ensures aspect ratio is preserved
+  // withoutEnlargement: true prevents upscaling small images
+  sharpInstance = sharpInstance.resize(opts.maxWidth, opts.maxHeight, {
+    fit: "inside",
+    withoutEnlargement: true,
+  });
+
+  // Determine if image was actually resized
+  const wasResized = originalWidth > opts.maxWidth || originalHeight > opts.maxHeight;
+
+  // Apply format-specific compression
+  let processedBuffer: Buffer;
+  let mimeType: string;
+
+  switch (opts.format) {
+    case "webp":
+      processedBuffer = await sharpInstance.webp({ quality: opts.quality }).toBuffer();
+      mimeType = "image/webp";
+      break;
+    case "png":
+      processedBuffer = await sharpInstance.png({ compressionLevel: 9 }).toBuffer();
+      mimeType = "image/png";
+      break;
+    case "jpeg":
+    default:
+      processedBuffer = await sharpInstance.jpeg({ quality: opts.quality, mozjpeg: true }).toBuffer();
+      mimeType = "image/jpeg";
+      break;
+  }
+
+  // Get processed dimensions
+  const processedMetadata = await sharp(processedBuffer).metadata();
+  const processedSize = processedBuffer.length;
+
+  // Save to filesystem
+  await fs.writeFile(outputPath, processedBuffer);
+
+  return {
+    filePath: outputPath,
+    mimeType,
+    originalSize,
+    processedSize,
+    width: processedMetadata.width || opts.maxWidth,
+    height: processedMetadata.height || opts.maxHeight,
+    originalWidth,
+    originalHeight,
+    compressionRatio: originalSize / processedSize,
+    wasResized,
   };
 }
 
