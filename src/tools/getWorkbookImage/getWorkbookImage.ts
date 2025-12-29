@@ -1,8 +1,9 @@
 /**
  * Get Workbook Image Tool
  *
- * Fetches, resizes, and compresses a Tableau Public visualization image
- * to fit within MCP token limits. Returns the image as base64 data.
+ * Fetches, resizes, and compresses a Tableau Public visualization image,
+ * saving it to the filesystem. Preserves aspect ratio and text detail.
+ * Returns the file path for AI analysis.
  */
 
 import { z } from "zod";
@@ -10,8 +11,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
-import { createImageResult, createErrorResult, handleApiError } from "../../utils/errorHandling.js";
-import { fetchAndOptimizeImage, ProcessedImage } from "../../utils/imageProcessing.js";
+import { createSuccessResult, createErrorResult, handleApiError } from "../../utils/errorHandling.js";
+import { fetchResizeAndSave, SavedImage } from "../../utils/imageProcessing.js";
+import { ensureTempSubdir, getImagePath, formatFileSize } from "../../utils/fileSystem.js";
 import { getConfig } from "../../config.js";
 
 /**
@@ -27,24 +29,24 @@ const paramsSchema = z.object({
   maxWidth: z.coerce.number()
     .int()
     .min(100)
-    .max(1200)
+    .max(2400)
     .optional()
-    .default(800)
-    .describe("Maximum width in pixels (default: 800, max: 1200)"),
+    .default(768)
+    .describe("Maximum width in pixels (default: 768, max: 2400) - maintains aspect ratio"),
   maxHeight: z.coerce.number()
     .int()
     .min(100)
-    .max(900)
+    .max(2400)
     .optional()
-    .default(600)
-    .describe("Maximum height in pixels (default: 600, max: 900)"),
+    .default(768)
+    .describe("Maximum height in pixels (default: 768, max: 2400) - maintains aspect ratio"),
   quality: z.coerce.number()
     .int()
     .min(10)
     .max(100)
     .optional()
-    .default(80)
-    .describe("JPEG/WebP compression quality 10-100 (default: 80)"),
+    .default(85)
+    .describe("JPEG/WebP compression quality 10-100 (default: 85 for text clarity)"),
   format: z.enum(["jpeg", "webp", "png"])
     .optional()
     .default("jpeg")
@@ -57,11 +59,14 @@ type GetWorkbookImageParams = z.infer<typeof paramsSchema>;
  * Factory function to create the getWorkbookImage tool
  *
  * This tool fetches a Tableau Public visualization image, resizes it to fit
- * within specified dimensions, and compresses it to reduce file size.
- * The optimized image is returned as base64 data suitable for MCP responses.
+ * within specified dimensions (while maintaining aspect ratio), compresses it,
+ * and saves it to the filesystem. The optimized image file path is returned.
  *
- * Default settings (800x600, quality 80, JPEG) produce images typically
- * 40-60KB, well under the MCP 25K token limit (~75KB base64).
+ * Default settings (768px max dimension, quality 85, JPEG) produce images typically
+ * 150-400KB, preserving text detail important for dashboard analysis.
+ *
+ * Images are saved to: {temp}/tableau-public-mcp/images/{workbook}_{view}_{timestamp}.{ext}
+ * Files are left in the temp directory for OS-managed cleanup.
  *
  * @param server - The MCP server instance
  * @returns Configured Tool instance
@@ -74,16 +79,22 @@ type GetWorkbookImageParams = z.infer<typeof paramsSchema>;
  *   "viewName": "Dashboard1"
  * }
  *
- * // Response includes base64 image data + metadata
+ * // Response includes file path and optimization metadata
+ * {
+ *   "success": true,
+ *   "filePath": "/tmp/tableau-public-mcp/images/SalesForecastDashboard_2_Dashboard1_1234567890.jpg",
+ *   "optimization": { ... }
+ * }
  * ```
  */
 export function getWorkbookImageTool(server: Server): Tool<typeof paramsSchema.shape> {
   return new Tool({
     server,
     name: "get_workbook_image",
-    description: "Fetches and optimizes a Tableau Public visualization image for MCP responses. " +
-      "Resizes and compresses the image to fit within MCP token limits (default: 800x600, JPEG quality 80). " +
-      "Returns the image as base64 data along with metadata about size and compression. " +
+    description: "Fetches and optimizes a Tableau Public visualization image, saving it to the filesystem. " +
+      "Scales down images larger than 768px (maintaining aspect ratio) and compresses to 150-400KB target size. " +
+      "Preserves text detail important for dashboard analysis. " +
+      "Returns the file path where the optimized image is saved, along with metadata about size and compression. " +
       "Requires the workbook repository URL and view name. " +
       "View names should have spaces and periods removed (e.g., 'Dashboard 1' -> 'Dashboard1').",
     paramsSchema: paramsSchema.shape,
@@ -92,18 +103,33 @@ export function getWorkbookImageTool(server: Server): Tool<typeof paramsSchema.s
     },
 
     callback: async (args: GetWorkbookImageParams): Promise<Ok<CallToolResult>> => {
+      // Explicitly parse parameters to ensure type coercion
+      const parsed = paramsSchema.parse(args);
+
       const {
         workbookUrl,
         viewName,
-        maxWidth = 800,
-        maxHeight = 600,
-        quality = 80,
+        maxWidth = 768,
+        maxHeight = 768,
+        quality = 85,
         format = "jpeg"
-      } = args;
+      } = parsed;
+
+      // Ensure numeric types (defensive check)
+      const width = Number(maxWidth);
+      const height = Number(maxHeight);
+      const qual = Number(quality);
+
+      if (isNaN(width) || isNaN(height) || isNaN(qual)) {
+        return createErrorResult(
+          "Invalid numeric parameters",
+          { maxWidth, maxHeight, quality }
+        );
+      }
 
       try {
         console.error(`[get_workbook_image] Fetching and optimizing image for: ${workbookUrl}/${viewName}`);
-        console.error(`[get_workbook_image] Options: ${maxWidth}x${maxHeight}, quality=${quality}, format=${format}`);
+        console.error(`[get_workbook_image] Options: max ${width}x${height} (aspect ratio preserved), quality=${qual}, format=${format}`);
 
         const config = getConfig();
 
@@ -112,13 +138,19 @@ export function getWorkbookImageTool(server: Server): Tool<typeof paramsSchema.s
 
         console.error(`[get_workbook_image] Fetching from: ${imageUrl}`);
 
-        // Fetch and optimize the image
-        let result: ProcessedImage;
+        // Prepare the output path
+        await ensureTempSubdir("images");
+        const outputPath = getImagePath(workbookUrl, viewName, format);
+
+        console.error(`[get_workbook_image] Will save to: ${outputPath}`);
+
+        // Fetch, resize, and save the image
+        let result: SavedImage;
         try {
-          result = await fetchAndOptimizeImage(imageUrl, {
-            maxWidth,
-            maxHeight,
-            quality,
+          result = await fetchResizeAndSave(imageUrl, outputPath, {
+            maxWidth: width,
+            maxHeight: height,
+            quality: qual,
             format
           });
         } catch (fetchError) {
@@ -144,43 +176,50 @@ export function getWorkbookImageTool(server: Server): Tool<typeof paramsSchema.s
                 }
               );
             }
+            if (fetchError.message.includes("ENOENT") || fetchError.message.includes("EACCES")) {
+              return createErrorResult(
+                "Failed to save image file",
+                {
+                  workbookUrl,
+                  viewName,
+                  filePath: outputPath,
+                  error: fetchError.message,
+                  suggestion: "Check filesystem permissions for the temp directory"
+                }
+              );
+            }
           }
           throw fetchError;
         }
 
         console.error(`[get_workbook_image] Optimized: ${result.originalSize} -> ${result.processedSize} bytes (${result.compressionRatio.toFixed(1)}x compression)`);
-        console.error(`[get_workbook_image] Dimensions: ${result.width}x${result.height}, Estimated tokens: ${result.estimatedTokens}`);
+        console.error(`[get_workbook_image] Dimensions: ${result.width}x${result.height}`);
+        console.error(`[get_workbook_image] Saved to: ${result.filePath}`);
 
-        // Check if result exceeds MCP limit and warn
-        const MCP_TOKEN_LIMIT = 25000;
-        const exceedsLimit = result.estimatedTokens > MCP_TOKEN_LIMIT;
-
-        if (exceedsLimit) {
-          console.error(`[get_workbook_image] WARNING: Image still exceeds MCP token limit (${result.estimatedTokens} > ${MCP_TOKEN_LIMIT})`);
-        }
-
-        // Return the image with metadata
-        const metadata = {
+        // Return the file path with metadata (following downloadWorkbookTwbx pattern)
+        const response = {
+          success: true,
+          filePath: result.filePath,
           workbookUrl,
           viewName,
           originalUrl: imageUrl,
           optimization: {
             originalSize: result.originalSize,
+            originalSizeFormatted: formatFileSize(result.originalSize),
             processedSize: result.processedSize,
+            processedSizeFormatted: formatFileSize(result.processedSize),
             compressionRatio: Math.round(result.compressionRatio * 10) / 10,
-            width: result.width,
-            height: result.height,
+            originalDimensions: `${result.originalWidth}x${result.originalHeight}`,
+            finalDimensions: `${result.width}x${result.height}`,
+            wasResized: result.wasResized,
             format: result.mimeType,
-            quality
+            quality: qual
           },
-          tokenInfo: {
-            estimatedTokens: result.estimatedTokens,
-            mcpLimit: MCP_TOKEN_LIMIT,
-            withinLimit: !exceedsLimit
-          }
+          savedAt: new Date().toISOString(),
+          nextStep: "The optimized image has been saved to the file path. You can now analyze it with vision capabilities."
         };
 
-        return createImageResult(result.data, result.mimeType, metadata);
+        return createSuccessResult(response);
 
       } catch (error) {
         return handleApiError(error, `fetching and optimizing image for '${workbookUrl}/${viewName}'`);

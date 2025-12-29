@@ -81,6 +81,31 @@ export function getDownloadPath(workbookName: string): string {
 }
 
 /**
+ * Generates the file path for a saved workbook image
+ *
+ * @param workbookUrl - The workbook repository URL
+ * @param viewName - The view name
+ * @param format - Image format (jpeg, webp, png)
+ * @returns Path where the image should be saved
+ */
+export function getImagePath(
+  workbookUrl: string,
+  viewName: string,
+  format: "jpeg" | "webp" | "png"
+): string {
+  const timestamp = Date.now();
+  const safeWorkbook = workbookUrl.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeView = viewName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const extension = format === "jpeg" ? "jpg" : format;
+
+  return path.join(
+    TABLEAU_TEMP_DIR,
+    "images",
+    `${safeWorkbook}_${safeView}_${timestamp}.${extension}`
+  );
+}
+
+/**
  * Categorizes a file based on its path and extension
  *
  * Categories:

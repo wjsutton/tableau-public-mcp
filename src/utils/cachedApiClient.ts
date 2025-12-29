@@ -105,6 +105,20 @@ const ENDPOINT_CACHE_MAP: CacheMapping[] = [
     ttl: TTL.VOTD,
     name: "votd",
   },
+  // Discovery endpoints - Authors (v3)
+  {
+    pattern: /^\/public\/apis\/bff\/discover\/v3\/authors\//,
+    getCache: getDiscoveryCache,
+    ttl: TTL.FEATURED,
+    name: "featured-authors-v3",
+  },
+  // Discovery endpoints - Author Channels (v1)
+  {
+    pattern: /^\/public\/apis\/bff\/discover\/v1\/author_channels\//,
+    getCache: getDiscoveryCache,
+    ttl: TTL.FEATURED,
+    name: "author-channels-v1",
+  },
   {
     pattern: /^\/public\/apis\/featured-authors/,
     getCache: getDiscoveryCache,
