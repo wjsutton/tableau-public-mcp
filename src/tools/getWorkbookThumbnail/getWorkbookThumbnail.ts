@@ -25,7 +25,7 @@ const paramsSchema = z.object({
   workbookName: z.string()
     .optional()
     .describe("Canonical workbook name (without numeric suffix). If not provided, will attempt to derive from workbookUrl by removing trailing _digits. Example: For 'olympic_ages_17646104017530', use 'olympic_ages'."),
-  useStaticPath: z.boolean()
+  useStaticPath: z.coerce.boolean()
     .optional()
     .default(false)
     .describe("Use alternative static image path format (default: false, uses thumb path)")

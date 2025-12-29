@@ -28,7 +28,7 @@ const paramsSchema = z.object({
   twbFilePath: z.string()
     .min(1, "TWB file path cannot be empty")
     .describe("Full path to the .twb file (from unpack_twbx extraction)"),
-  includeSourceFields: z.boolean()
+  includeSourceFields: z.coerce.boolean()
     .optional()
     .default(false)
     .describe("Include source/raw fields as roots in the dependency tree (default: false)")

@@ -38,8 +38,10 @@ const paramsSchema = z.object({
     .describe("Starting index for pagination (default: 0). " +
       "Not used for tableau-ambassadors-north-america endpoint."),
 
-  limit: z.union([z.literal(1), z.literal(12)])
-    .optional()
+  limit: z.preprocess(
+    (val) => val === undefined ? undefined : Number(val),
+    z.union([z.literal(1), z.literal(12)]).optional()
+  )
     .describe("Number of results to return: must be 1 or 12 (default: 12). " +
       "Not used for tableau-ambassadors-north-america endpoint.")
 });

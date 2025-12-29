@@ -30,7 +30,7 @@ const paramsSchema = z.object({
   twbFilePath: z.string()
     .min(1, "TWB file path cannot be empty")
     .describe("Full path to the .twb file (from unpack_twbx extraction)"),
-  includeUsageContext: z.boolean()
+  includeUsageContext: z.coerce.boolean()
     .optional()
     .default(true)
     .describe("Include information about where each LOD is used (default: true)")

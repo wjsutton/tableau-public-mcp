@@ -939,7 +939,7 @@ This PRD was successfully implemented with all 16 tools fully functional. Key de
 
 **Tools Implemented (16 total with tests)**
 - ✅ User Profile Tools: get_user_profile, get_user_profile_categories, get_user_profile_basic
-- ✅ Workbook Tools: get_workbooks_list, get_workbook_details, get_workbook_contents, get_related_workbooks, get_shared_workbook
+- ✅ Workbook Tools: get_workbooks_list, get_workbook_details, get_workbook_contents, get_related_workbooks
 - ✅ Social Tools: get_followers, get_following, get_favorites
 - ✅ Discovery Tools: search_visualizations, get_viz_of_day, get_featured_authors
 - ✅ Media Tools: get_workbook_image, get_workbook_thumbnail

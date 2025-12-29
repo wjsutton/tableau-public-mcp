@@ -65,11 +65,11 @@ const paramsSchema = z.object({
   twbFilePath: z.string()
     .min(1, "TWB file path cannot be empty")
     .describe("Full path to the .twb file (from unpack_twbx extraction)"),
-  includeHidden: z.boolean()
+  includeHidden: z.coerce.boolean()
     .optional()
     .default(true)
     .describe("Include hidden calculated fields (default: true)"),
-  includeDependencies: z.boolean()
+  includeDependencies: z.coerce.boolean()
     .optional()
     .default(true)
     .describe("Analyze field dependencies (default: true)")

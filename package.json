@@ -44,10 +44,10 @@
     "@types/papaparse": "^5.5.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "@vitest/coverage-v8": "^1.6.0",
+    "@vitest/coverage-v8": "^4.0.16",
     "eslint": "^8.57.1",
     "typescript": "^5.7.2",
-    "vitest": "^1.6.0"
+    "vitest": "^4.0.16"
   },
   "engines": {
     "node": ">=20.0.0"
