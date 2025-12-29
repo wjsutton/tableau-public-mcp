@@ -32,7 +32,7 @@ const paramsSchema = z.object({
   extractionPath: z.string()
     .min(1, "Extraction path cannot be empty")
     .describe("Path to extracted TWBX contents (from unpack_twbx)"),
-  includeImageProfile: z.boolean()
+  includeImageProfile: z.coerce.boolean()
     .optional()
     .default(true)
     .describe("Include image asset inventory (default: true)"),

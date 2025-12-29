@@ -114,7 +114,7 @@ The server provides 16 tools organized into 5 categories:
 | `get_user_profile_categories` | User's workbook categories with contained workbooks |
 | `get_user_profile_basic` | Lightweight basic profile information |
 
-### Workbook Tools (5)
+### Workbook Tools (4)
 
 | Tool | Description |
 |------|-------------|
@@ -122,7 +122,6 @@ The server provides 16 tools organized into 5 categories:
 | `get_workbook_details` | Detailed metadata for a single workbook |
 | `get_workbook_contents` | Complete structure with all sheets and dashboards |
 | `get_related_workbooks` | Recommended workbooks based on content similarity |
-| `get_shared_workbook` | Resolve shared workbook URLs to source details |
 
 ### Social Tools (3)
 

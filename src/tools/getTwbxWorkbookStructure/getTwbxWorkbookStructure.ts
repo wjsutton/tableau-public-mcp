@@ -32,7 +32,7 @@ const paramsSchema = z.object({
   twbFilePath: z.string()
     .min(1, "TWB file path cannot be empty")
     .describe("Full path to the .twb file (from unpack_twbx extraction)"),
-  includeFieldDetails: z.boolean()
+  includeFieldDetails: z.coerce.boolean()
     .optional()
     .default(false)
     .describe("Include detailed field lists for worksheets (default: false to keep output concise)")

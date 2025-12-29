@@ -18,7 +18,6 @@ import { getWorkbooksListTool } from "./getWorkbooksList/getWorkbooksList.js";
 import { getWorkbookDetailsTool } from "./getWorkbookDetails/getWorkbookDetails.js";
 import { getWorkbookContentsTool } from "./getWorkbookContents/getWorkbookContents.js";
 import { getRelatedWorkbooksTool } from "./getRelatedWorkbooks/getRelatedWorkbooks.js";
-import { getSharedWorkbookTool } from "./getSharedWorkbook/getSharedWorkbook.js";
 
 // Social Tools
 import { getFollowersTool } from "./getFollowers/getFollowers.js";
@@ -68,12 +67,11 @@ export const toolFactories: ToolFactory[] = [
   getUserProfileCategoriesTool,
   getUserProfileBasicTool,
 
-  // Workbook Tools (5)
+  // Workbook Tools (4)
   getWorkbooksListTool,
   getWorkbookDetailsTool,
   getWorkbookContentsTool,
   getRelatedWorkbooksTool,
-  getSharedWorkbookTool,
 
   // Social Tools (3)
   getFollowersTool,

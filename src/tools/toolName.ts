@@ -22,7 +22,6 @@ export const TOOL_NAMES = [
   "get_workbook_details",
   "get_workbook_contents",
   "get_related_workbooks",
-  "get_shared_workbook",
 
   // Social Tools
   "get_followers",
@@ -44,7 +43,8 @@ export const TOOL_NAMES = [
   "get_twbx_calculated_fields",
   "get_twbx_workbook_structure",
   "get_twbx_calculation_dependencies",
-  "get_twbx_lod_expressions"
+  "get_twbx_lod_expressions",
+  "get_twbx_data_profile"
 ] as const;
 
 /**
