@@ -15,19 +15,45 @@ import { createSuccessResult, handleApiError } from "../../utils/errorHandling.j
 /**
  * Parameter schema for getFeaturedAuthors tool
  *
- * This endpoint doesn't take parameters but we include
- * an empty schema for consistency.
+ * Supports three community groups with optional pagination
+ * for visionaries endpoints.
  */
-const paramsSchema = z.object({});
+const paramsSchema = z.object({
+  group: z.enum([
+    "hall-of-fame-visionaries",
+    "tableau-visionaries",
+    "tableau-ambassadors-north-america"
+  ])
+    .optional()
+    .describe("Community group to retrieve authors from: " +
+      "'hall-of-fame-visionaries' (Hall of Fame Visionaries), " +
+      "'tableau-visionaries' (Tableau Visionaries, default), " +
+      "'tableau-ambassadors-north-america' (Tableau Ambassadors North America). " +
+      "Default: 'tableau-visionaries'"),
+
+  startIndex: z.coerce.number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Starting index for pagination (default: 0). " +
+      "Not used for tableau-ambassadors-north-america endpoint."),
+
+  limit: z.union([z.literal(1), z.literal(12)])
+    .optional()
+    .describe("Number of results to return: must be 1 or 12 (default: 12). " +
+      "Not used for tableau-ambassadors-north-america endpoint.")
+});
 
 type GetFeaturedAuthorsParams = z.infer<typeof paramsSchema>;
 
 /**
  * Factory function to create the getFeaturedAuthors tool
  *
- * This tool fetches the list of featured authors on Tableau Public.
- * Featured authors are content creators highlighted by Tableau for
- * their exceptional work and contributions to the community.
+ * This tool fetches authors from Tableau Public community groups.
+ * Supports three groups:
+ * - Hall of Fame Visionaries (past visionaries)
+ * - Tableau Visionaries (current visionaries, default)
+ * - Tableau Ambassadors North America
  *
  * Returns author information including:
  * - Profile names and usernames
@@ -35,6 +61,7 @@ type GetFeaturedAuthorsParams = z.infer<typeof paramsSchema>;
  * - Specialties and focus areas
  * - Social links
  *
+ * Pagination is supported for visionaries endpoints (max 12 per request).
  * Useful for discovering influential creators and quality content sources.
  *
  * @param server - The MCP server instance
@@ -42,20 +69,24 @@ type GetFeaturedAuthorsParams = z.infer<typeof paramsSchema>;
  *
  * @example
  * ```typescript
- * // Request (no parameters needed)
+ * // Get default group (tableau-visionaries)
  * {}
  *
- * // Response includes featured author profiles and biographies
+ * // Get hall of fame visionaries with pagination
+ * { group: "hall-of-fame-visionaries", startIndex: 0, limit: 12 }
+ *
+ * // Get ambassadors (no pagination)
+ * { group: "tableau-ambassadors-north-america" }
  * ```
  */
 export function getFeaturedAuthorsTool(server: Server): Tool<typeof paramsSchema.shape> {
   return new Tool({
     server,
     name: "get_featured_authors",
-    description: "Retrieves the list of featured authors on Tableau Public. " +
-      "Featured authors are content creators highlighted by Tableau for exceptional work. " +
-      "Returns profile names, biographies, specialties, and social links. " +
-      "No parameters required. " +
+    description: "Retrieves authors from Tableau Public community groups. " +
+      "Supports Hall of Fame Visionaries, Tableau Visionaries (default), and " +
+      "Tableau Ambassadors North America. Returns profiles, biographies, specialties, " +
+      "and social links. Pagination supported for visionaries (max 12 per request). " +
       "Useful for discovering influential creators, learning from top community members, " +
       "and finding quality content sources.",
     paramsSchema: paramsSchema.shape,
@@ -63,20 +94,42 @@ export function getFeaturedAuthorsTool(server: Server): Tool<typeof paramsSchema
       title: "Get Featured Authors"
     },
 
-    callback: async (_args: GetFeaturedAuthorsParams): Promise<Ok<CallToolResult>> => {
-      try {
-        console.error(`[get_featured_authors] Fetching featured authors`);
+    callback: async (args: GetFeaturedAuthorsParams): Promise<Ok<CallToolResult>> => {
+      const { group = "tableau-visionaries", startIndex = 0, limit = 12 } = args;
 
-        // Call Tableau Public API with caching
-        const data = await cachedGet<{ authors?: unknown[] }>("/s/authors/list/feed");
+      try {
+        console.error(`[get_featured_authors] Fetching authors from ${group}`);
+
+        // Map group to endpoint
+        let endpoint: string;
+        switch (group) {
+          case "hall-of-fame-visionaries":
+            endpoint = "/public/apis/bff/discover/v3/authors/hall-of-fame-visionaries";
+            break;
+          case "tableau-visionaries":
+            endpoint = "/public/apis/bff/discover/v3/authors/tableau-visionaries";
+            break;
+          case "tableau-ambassadors-north-america":
+            endpoint = "/public/apis/bff/discover/v1/author_channels/tableau-ambassadors-north-america";
+            break;
+          default:
+            endpoint = "/public/apis/bff/discover/v3/authors/tableau-visionaries";
+        }
+
+        // Ambassadors endpoint doesn't support pagination
+        const isAmbassadors = group === "tableau-ambassadors-north-america";
+        const data = await cachedGet<{ authors?: unknown[] }>(
+          endpoint,
+          isAmbassadors ? undefined : { startIndex, limit }
+        );
 
         const authorCount = data?.authors?.length || (Array.isArray(data) ? data.length : 0);
-        console.error(`[get_featured_authors] Retrieved ${authorCount} featured authors`);
+        console.error(`[get_featured_authors] Retrieved ${authorCount} authors from ${group}`);
 
         return createSuccessResult(data);
 
       } catch (error) {
-        return handleApiError(error, "fetching featured authors");
+        return handleApiError(error, `fetching authors from ${group}`);
       }
     }
   });
