@@ -44,6 +44,7 @@ type GetWorkbookDetailsParams = z.infer<typeof paramsSchema>;
  * }
  *
  * // Response includes detailed workbook metadata
+ * // Note: Use just the workbook name, NOT the 'username/workbook-name' format
  * ```
  */
 export function getWorkbookDetailsTool(server: Server): Tool<typeof paramsSchema.shape> {
