@@ -28,19 +28,19 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.25.1",
     "adm-zip": "^0.5.16",
-    "axios": "^1.7.9",
+    "axios": "^1.13.2",
+    "exceljs": "^4.4.0",
     "fast-xml-parser": "^4.5.1",
     "papaparse": "^5.5.3",
     "sharp": "^0.34.5",
     "ts-results-es": "^4.2.0",
-    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
-    "@types/node": "^20.17.10",
+    "@types/node": "^20.19.27",
     "@types/papaparse": "^5.5.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",

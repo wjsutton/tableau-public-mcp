@@ -146,7 +146,7 @@ export function getTwbxDataProfileTool(server: Server): Tool<typeof paramsSchema
 
         // Step 5: Profile data files
         const csvProfiles = await profileCsvFiles(csvFiles);
-        const excelProfiles = profileExcelFiles(excelFiles);
+        const excelProfiles = await profileExcelFiles(excelFiles);
         const jsonProfiles = await profileJsonFiles(jsonFiles);
 
         const dataFiles: DataFileProfiles = {
