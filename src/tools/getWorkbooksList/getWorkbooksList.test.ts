@@ -36,7 +36,8 @@ describe("getWorkbooksList", () => {
       { title: "Dashboard 2", views: 500 }
     ];
 
-    vi.mocked(cachedGet).mockResolvedValueOnce(mockWorkbooks);
+    // Mock the API response structure with contents array
+    vi.mocked(cachedGet).mockResolvedValueOnce({ contents: mockWorkbooks });
 
     const result = await tool.callback({ username: "testuser" });
 
@@ -59,7 +60,7 @@ describe("getWorkbooksList", () => {
   });
 
   it("should support custom pagination parameters", async () => {
-    vi.mocked(cachedGet).mockResolvedValueOnce([]);
+    vi.mocked(cachedGet).mockResolvedValueOnce({ contents: [] });
 
     await tool.callback({
       username: "testuser",
@@ -77,6 +78,37 @@ describe("getWorkbooksList", () => {
         visibility: "ALL"
       }
     );
+  });
+
+  it("should handle API response with array format (backward compatibility)", async () => {
+    const mockWorkbooks = [
+      { title: "Dashboard 1", views: 1000 }
+    ];
+
+    // Mock direct array response (legacy format)
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockWorkbooks);
+
+    const result = await tool.callback({ username: "testuser" });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("Dashboard 1");
+  });
+
+  it("should handle API response with missing contents property", async () => {
+    // Mock response without contents property
+    vi.mocked(cachedGet).mockResolvedValueOnce({ current: 0, next: 50 });
+
+    const result = await tool.callback({ username: "testuser" });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    expect(value.isError).toBe(false);
+    // Should return empty array when contents is missing
+    const responseText = value.content[0].text;
+    expect(responseText).toContain("Retrieved 0 workbooks");
   });
 
   it("should handle errors", async () => {

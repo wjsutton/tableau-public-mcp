@@ -163,6 +163,33 @@ describe("searchVisualizations", () => {
       const responseText = value.content[0].text;
       expect(responseText).toContain("[]"); // Empty results array
     });
+
+    it("should include directUrl in workbook results", async () => {
+      const mockResponse = createMockSearchResponse([
+        {
+          authorProfileName: "tableau.user",
+          authorDisplayName: "Tableau User",
+          title: "Sales Dashboard",
+          workbookRepoUrl: "SalesDashboard_17164464702070",
+          defaultViewRepoUrl: "SalesDashboard_17164464702070/sheets/Overview",
+          viewCount: 5000,
+          numberOfFavorites: 100
+        }
+      ]);
+
+      vi.mocked(cachedGet).mockResolvedValueOnce(mockResponse);
+
+      const result = await tool.callback({ query: "sales" });
+
+      expect(result.isOk()).toBe(true);
+      const value = result.unwrap();
+      const parsedResponse = JSON.parse(value.content[0].text);
+
+      // Verify directUrl is present and correctly formatted
+      expect(parsedResponse.results[0].workbook.directUrl).toBe(
+        "https://public.tableau.com/app/profile/tableau.user/viz/SalesDashboard_17164464702070/Overview"
+      );
+    });
   });
 
   describe("searching for authors", () => {

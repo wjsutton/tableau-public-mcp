@@ -11,6 +11,20 @@ vi.mock("../../utils/cachedApiClient.js", () => ({
   cachedGet: vi.fn()
 }));
 
+vi.mock("../../config.js", () => ({
+  getConfig: vi.fn(() => ({
+    logLevel: "info",
+    cacheEnabled: true,
+    maxResultLimit: 1000,
+    apiTimeout: 30000,
+    baseURL: "https://public.tableau.com",
+    cacheMaxEntries: 1000,
+    cacheDefaultTTL: 300000,
+    maxConcurrency: 3,
+    batchDelayMs: 100,
+  }))
+}));
+
 describe("getRelatedWorkbooks", () => {
   let server: Server;
   let tool: ReturnType<typeof getRelatedWorkbooksTool>;
@@ -63,6 +77,31 @@ describe("getRelatedWorkbooks", () => {
     expect(cachedGet).toHaveBeenCalledWith(
       "/public/apis/bff/workbooks/v2/testuser/workbook/recommended-workbooks",
       { count: 10 }
+    );
+  });
+
+  it("should include directUrl in related workbooks", async () => {
+    const mockRelated = [
+      {
+        title: "Related Sales Dashboard",
+        authorProfileName: "tableau.user",
+        workbookRepoUrl: "SalesDashboard_17164464702070",
+        defaultViewRepoUrl: "SalesDashboard_17164464702070/sheets/Dashboard"
+      }
+    ];
+
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockRelated);
+
+    const result = await tool.callback({ workbookUrl: "testuser/workbook" });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    const responseText = value.content[0].type === 'text' ? value.content[0].text : '';
+    const parsedResponse = JSON.parse(responseText);
+
+    // Verify directUrl is present and correctly formatted
+    expect(parsedResponse[0].directUrl).toBe(
+      "https://public.tableau.com/app/profile/tableau.user/viz/SalesDashboard_17164464702070/Dashboard"
     );
   });
 

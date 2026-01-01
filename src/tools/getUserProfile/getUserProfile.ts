@@ -12,6 +12,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getUserProfile tool
@@ -61,7 +62,7 @@ export function getUserProfileTool(server: Server): Tool<typeof paramsSchema.sha
     name: "get_user_profile",
     description: "Retrieves comprehensive profile information for a Tableau Public user. " +
       "Returns user metadata including workbook counts, followers, following, favorites, " +
-      "social links, website details, freelance status, and the last 21 workbooks. " +
+      "social links, website details, freelance status, and the last 21 workbooks with direct URLs. " +
       "Useful for getting a complete overview of a user's Tableau Public presence.",
     paramsSchema: paramsSchema.shape,
     annotations: {
@@ -76,6 +77,24 @@ export function getUserProfileTool(server: Server): Tool<typeof paramsSchema.sha
 
         // Call Tableau Public API with caching
         const data = await cachedGet(`/profile/api/${username}`);
+
+        // Enrich recent workbooks with directUrl if present
+        if (data && typeof data === 'object' && 'recentWorkbooks' in data && Array.isArray(data.recentWorkbooks)) {
+          data.recentWorkbooks = data.recentWorkbooks.map((workbook: any) => {
+            const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = workbook;
+            if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+              const directUrl = constructDirectUrl({
+                authorProfileName,
+                workbookRepoUrl,
+                defaultViewRepoUrl
+              });
+              if (directUrl) {
+                workbook.directUrl = directUrl;
+              }
+            }
+            return workbook;
+          });
+        }
 
         console.error(`[get_user_profile] Successfully retrieved profile for ${username}`);
 

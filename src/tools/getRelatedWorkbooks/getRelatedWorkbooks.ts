@@ -11,6 +11,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getRelatedWorkbooks tool
@@ -59,7 +60,7 @@ export function getRelatedWorkbooksTool(server: Server): Tool<typeof paramsSchem
     name: "get_related_workbooks",
     description: "Retrieves recommended workbooks related to a specific Tableau Public workbook. " +
       "Returns up to 20 similar workbooks based on Tableau Public's recommendation algorithm. " +
-      "Includes workbook metadata such as titles, authors, view counts, and thumbnails. " +
+      "Includes workbook metadata such as titles, authors, view counts, thumbnails, and direct URLs. " +
       "Requires the workbook repository URL in the format 'username/workbook-name'. " +
       "Useful for content discovery and finding similar visualizations.",
     paramsSchema: paramsSchema.shape,
@@ -74,15 +75,34 @@ export function getRelatedWorkbooksTool(server: Server): Tool<typeof paramsSchem
         console.error(`[get_related_workbooks] Fetching ${count} related workbooks for: ${workbookUrl}`);
 
         // Call Tableau Public API with caching
-        const data = await cachedGet<unknown[]>(
+        const response = await cachedGet<unknown[] | { workbooks?: unknown[] }>(
           `/public/apis/bff/workbooks/v2/${workbookUrl}/recommended-workbooks`,
           { count }
         );
 
-        const relatedCount = data?.length || 0;
+        // Handle both array and object responses
+        const workbooksArray = Array.isArray(response) ? response : (response as any)?.workbooks || [];
+
+        // Enrich workbooks with directUrl
+        const enrichedData = workbooksArray.map((workbook: any) => {
+          const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = workbook;
+          if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+            const directUrl = constructDirectUrl({
+              authorProfileName,
+              workbookRepoUrl,
+              defaultViewRepoUrl
+            });
+            if (directUrl) {
+              workbook.directUrl = directUrl;
+            }
+          }
+          return workbook;
+        });
+
+        const relatedCount = enrichedData.length;
         console.error(`[get_related_workbooks] Retrieved ${relatedCount} related workbooks`);
 
-        return createSuccessResult(data);
+        return createSuccessResult(enrichedData);
 
       } catch (error) {
         return handleApiError(error, `fetching related workbooks for '${workbookUrl}'`);

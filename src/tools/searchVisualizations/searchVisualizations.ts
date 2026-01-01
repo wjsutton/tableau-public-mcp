@@ -12,6 +12,7 @@ import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 import { getConfig } from "../../config.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for searchVisualizations tool
@@ -84,7 +85,8 @@ export function searchVisualizationsTool(server: Server): Tool<typeof paramsSche
     server,
     name: "search_visualizations",
     description: "Searches Tableau Public for visualizations or authors matching a query. " +
-      "Returns ranked search results with titles, descriptions, authors, view counts, and thumbnails. " +
+      "Returns ranked search results with titles, descriptions, authors, view counts, thumbnails, and direct URLs. " +
+      "The directUrl field provides a ready-to-use link to view each visualization on Tableau Public. " +
       "Can search for either 'vizzes' (workbooks and visualizations) or 'authors' (content creators). " +
       "Supports pagination with start and count parameters (max 100 results per request). " +
       "Useful for content discovery, finding specific topics, and identifying relevant creators.",
@@ -117,6 +119,26 @@ export function searchVisualizationsTool(server: Server): Tool<typeof paramsSche
             language
           }
         );
+
+        // Enrich workbook results with directUrl
+        if (type === "vizzes" && data?.results) {
+          data.results = data.results.map((result: any) => {
+            if (result.workbook) {
+              const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = result.workbook;
+              if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+                const directUrl = constructDirectUrl({
+                  authorProfileName,
+                  workbookRepoUrl,
+                  defaultViewRepoUrl
+                });
+                if (directUrl) {
+                  result.workbook.directUrl = directUrl;
+                }
+              }
+            }
+            return result;
+          });
+        }
 
         const resultCount = data?.results?.length || 0;
         if (config.logLevel === "debug") {

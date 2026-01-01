@@ -14,6 +14,7 @@ import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 import { paginateByPageParallel } from "../../utils/pagination.js";
 import { getConfig } from "../../config.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getVizOfDay tool
@@ -86,7 +87,8 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
     description: "Retrieves Tableau Public's Visualization of the Day (VOTD) winners. " +
       "VOTD is a curated selection of exceptional visualizations featured by Tableau. " +
       "Returns winners with workbook titles, authors, feature dates, descriptions, " +
-      "view counts, and thumbnails. Supports efficient bulk fetching with 'maxResults' " +
+      "view counts, thumbnails, and direct URLs for viewing on Tableau Public. " +
+      "Supports efficient bulk fetching with 'maxResults' " +
       "(up to 500, uses parallel pagination for speed). Can filter by month/year " +
       "(e.g., filterMonth=10, filterYear=2024 for October 2024). " +
       "Useful for discovering high-quality visualizations and analyzing trends.",
@@ -135,13 +137,29 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
             }
           }
 
-          const votdCount = filteredVizzes.length;
+          // Enrich vizzes with directUrl
+          const enrichedVizzes = filteredVizzes.map((viz: any) => {
+            const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = viz;
+            if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+              const directUrl = constructDirectUrl({
+                authorProfileName,
+                workbookRepoUrl,
+                defaultViewRepoUrl
+              });
+              if (directUrl) {
+                viz.directUrl = directUrl;
+              }
+            }
+            return viz;
+          });
+
+          const votdCount = enrichedVizzes.length;
           if (config.logLevel === "debug") {
             console.error(`[get_viz_of_day] Retrieved ${votdCount} VOTD entries total`);
           }
 
           return createSuccessResult({
-            vizzes: filteredVizzes,
+            vizzes: enrichedVizzes,
             totalFetched: allVizzes.length,
             filtered: filterMonth && filterYear ? true : false,
             filterMonth,
@@ -172,12 +190,28 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
           });
         }
 
-        const votdCount = vizzes.length;
+        // Enrich vizzes with directUrl
+        const enrichedVizzes = vizzes.map((viz: any) => {
+          const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = viz;
+          if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+            const directUrl = constructDirectUrl({
+              authorProfileName,
+              workbookRepoUrl,
+              defaultViewRepoUrl
+            });
+            if (directUrl) {
+              viz.directUrl = directUrl;
+            }
+          }
+          return viz;
+        });
+
+        const votdCount = enrichedVizzes.length;
         if (config.logLevel === "debug") {
           console.error(`[get_viz_of_day] Retrieved ${votdCount} VOTD entries`);
         }
 
-        return createSuccessResult({ vizzes, page });
+        return createSuccessResult({ vizzes: enrichedVizzes, page });
 
       } catch (error) {
         return handleApiError(error, "fetching Viz of the Day winners");

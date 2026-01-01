@@ -11,6 +11,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getWorkbooksList tool
@@ -74,7 +75,8 @@ export function getWorkbooksListTool(server: Server): Tool<typeof paramsSchema.s
     name: "get_workbooks_list",
     description: "Retrieves a paginated list of workbooks for a Tableau Public user. " +
       "Returns workbook metadata including titles, view counts, publication dates, " +
-      "thumbnails, and sheet counts. Supports pagination with start and count parameters " +
+      "thumbnails, sheet counts, and direct URLs for viewing on Tableau Public. " +
+      "Supports pagination with start and count parameters " +
       "(max 50 per request). Use visibility filter to include or exclude hidden workbooks. " +
       "Useful for browsing a user's complete workbook portfolio.",
     paramsSchema: paramsSchema.shape,
@@ -89,15 +91,37 @@ export function getWorkbooksListTool(server: Server): Tool<typeof paramsSchema.s
         console.error(`[get_workbooks_list] Fetching workbooks for user: ${username} (start=${start}, count=${count}, visibility=${visibility})`);
 
         // Call Tableau Public API with caching
-        const data = await cachedGet<unknown[]>(
+        const response = await cachedGet<unknown[] | { contents?: unknown[]; workbooks?: unknown[] }>(
           "/public/apis/workbooks",
           { profileName: username, start, count, visibility }
         );
 
-        const workbookCount = data?.length || 0;
+        // Handle both array and object responses
+        // API returns: { current: 0, next: 50, contents: [...] }
+        const workbooksArray = Array.isArray(response)
+          ? response
+          : (response as any)?.contents || (response as any)?.workbooks || [];
+
+        // Enrich workbooks with directUrl
+        const enrichedData = workbooksArray.map((workbook: any) => {
+          const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = workbook;
+          if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+            const directUrl = constructDirectUrl({
+              authorProfileName,
+              workbookRepoUrl,
+              defaultViewRepoUrl
+            });
+            if (directUrl) {
+              workbook.directUrl = directUrl;
+            }
+          }
+          return workbook;
+        });
+
+        const workbookCount = enrichedData.length;
         console.error(`[get_workbooks_list] Retrieved ${workbookCount} workbooks for ${username}`);
 
-        return createSuccessResult(data);
+        return createSuccessResult(enrichedData);
 
       } catch (error) {
         return handleApiError(error, `fetching workbooks for user '${username}'`);

@@ -11,6 +11,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getWorkbookDetails tool
@@ -53,7 +54,7 @@ export function getWorkbookDetailsTool(server: Server): Tool<typeof paramsSchema
     name: "get_workbook_details",
     description: "Retrieves detailed metadata for a single Tableau Public workbook. " +
       "Returns comprehensive information including workbook title, description, " +
-      "view names and types, publication dates, author information, and view statistics. " +
+      "view names and types, publication dates, author information, view statistics, and direct URL. " +
       "Requires the workbook name from the Tableau Public URL (e.g., 'GloboxABTestAnalysis_17009696417070'). " +
       "Useful for getting complete information about a specific workbook.",
     paramsSchema: paramsSchema.shape,
@@ -71,6 +72,21 @@ export function getWorkbookDetailsTool(server: Server): Tool<typeof paramsSchema
         const data = await cachedGet(
           `/profile/api/single_workbook/${workbookName}`
         );
+
+        // Enrich workbook with directUrl
+        if (data && typeof data === 'object') {
+          const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = data as any;
+          if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+            const directUrl = constructDirectUrl({
+              authorProfileName,
+              workbookRepoUrl,
+              defaultViewRepoUrl
+            });
+            if (directUrl) {
+              (data as any).directUrl = directUrl;
+            }
+          }
+        }
 
         console.error(`[get_workbook_details] Successfully retrieved details for ${workbookName}`);
 

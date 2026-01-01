@@ -1,7 +1,7 @@
 {
   "name": "@tableau-public/mcp-server",
   "version": "1.0.0",
-  "description": "MCP server for Tableau Public APIs - enable AI applications to interact with Tableau Public content programmatically",
+  "description": "MCP server for Tableau Public APIs - enables AI applications to interact with Tableau Public content programmatically",
   "type": "module",
   "main": "./build/index.js",
   "bin": {

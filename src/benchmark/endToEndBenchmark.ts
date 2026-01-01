@@ -328,15 +328,16 @@ async function runIndividualToolTests(): Promise<{ results: ToolResult[]; testDa
   // 7. Workbooks List
   process.stdout.write("Testing get_workbooks_list... ");
   const workbooksResult = await testTool("get_workbooks_list", () =>
-    cachedGet<WorkbookListItem[]>("/public/apis/workbooks", {
+    cachedGet<{ contents?: WorkbookListItem[] }>("/public/apis/workbooks", {
       profileName: username, start: 0, count: 10, visibility: "NON_HIDDEN"
     })
   );
   results.push(workbooksResult);
   if (workbooksResult.success) {
-    const workbooks = await cachedGet<WorkbookListItem[]>("/public/apis/workbooks", {
+    const response = await cachedGet<{ contents?: WorkbookListItem[] }>("/public/apis/workbooks", {
       profileName: username, start: 0, count: 10, visibility: "NON_HIDDEN"
     });
+    const workbooks = response?.contents || [];
     testData.workbooks = workbooks;
     if (workbooks && workbooks.length > 0) {
       testData.testWorkbookUrl = workbooks[0].workbookRepoUrl;
@@ -505,9 +506,10 @@ async function runWorkflow1(): Promise<WorkflowResult> {
 
     // Step 3: Get Workbooks List
     const step3Start = performance.now();
-    const workbooks = await cachedGet<WorkbookListItem[]>("/public/apis/workbooks", {
+    const workbooksResponse = await cachedGet<{ contents?: WorkbookListItem[] }>("/public/apis/workbooks", {
       profileName: author, start: 0, count: 10, visibility: "NON_HIDDEN"
     });
+    const workbooks = workbooksResponse?.contents || [];
     steps.push({
       name: `Get workbooks for '${author}'`,
       tool: "get_workbooks_list",
@@ -615,9 +617,10 @@ async function runWorkflow2(): Promise<WorkflowResult> {
 
     // Step 3: Get Workbooks List
     const step3Start = performance.now();
-    const workbooks = await cachedGet<WorkbookListItem[]>("/public/apis/workbooks", {
+    const workbooksResponse = await cachedGet<{ contents?: WorkbookListItem[] }>("/public/apis/workbooks", {
       profileName: author, start: 0, count: 10, visibility: "NON_HIDDEN"
     });
+    const workbooks = workbooksResponse?.contents || [];
     steps.push({
       name: `Get workbooks for '${author}'`,
       tool: "get_workbooks_list",
@@ -862,8 +865,8 @@ async function runWorkflow5(): Promise<WorkflowResult> {
 
     // Step 2: Parallel fetch of all user data
     const parallelStart = performance.now();
-    const [workbooks] = await Promise.all([
-      cachedGet<WorkbookListItem[]>("/public/apis/workbooks", {
+    const [workbooksResponse] = await Promise.all([
+      cachedGet<{ contents?: WorkbookListItem[] }>("/public/apis/workbooks", {
         profileName: username, start: 0, count: 10, visibility: "NON_HIDDEN"
       }),
       cachedGet<unknown>(`/profile/api/followers/${username}`, { index: 0, count: 10 }),
@@ -873,6 +876,7 @@ async function runWorkflow5(): Promise<WorkflowResult> {
         startIndex: 0, pageSize: 10
       })
     ]);
+    const workbooks = workbooksResponse?.contents || [];
     steps.push({
       name: "Parallel: workbooks, followers, following, favorites, categories",
       tool: "Multiple tools in parallel",

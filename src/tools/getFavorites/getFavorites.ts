@@ -11,6 +11,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getFavorites tool
@@ -50,7 +51,7 @@ export function getFavoritesTool(server: Server): Tool<typeof paramsSchema.shape
     server,
     name: "get_favorites",
     description: "Retrieves the list of workbooks favorited by a Tableau Public user. " +
-      "Returns workbook repository URLs that the user has bookmarked or saved. " +
+      "Returns workbook information including repository URLs and direct URLs where available. " +
       "Favorites indicate content the user finds valuable or interesting. " +
       "Useful for understanding user preferences and discovering quality visualizations " +
       "curated by the community.",
@@ -66,14 +67,39 @@ export function getFavoritesTool(server: Server): Tool<typeof paramsSchema.shape
         console.error(`[get_favorites] Fetching favorites for user: ${username}`);
 
         // Call Tableau Public API with caching
-        const data = await cachedGet<unknown[]>(
+        const response = await cachedGet<unknown[] | { favorites?: unknown[]; workbooks?: unknown[] }>(
           `/profile/api/favorite/${username}/workbook`
         );
 
-        const favoriteCount = data?.length || 0;
+        // Handle both array and object responses
+        const favoritesArray = Array.isArray(response)
+          ? response
+          : (response as any)?.favorites || (response as any)?.workbooks || [];
+
+        // Enrich favorites with directUrl if they have required fields
+        // Note: API may return workbook objects or just URLs - handle both cases
+        const enrichedData = favoritesArray.map((favorite: any) => {
+          // If favorite is an object with workbook data
+          if (favorite && typeof favorite === 'object') {
+            const { authorProfileName, workbookRepoUrl, defaultViewRepoUrl } = favorite;
+            if (authorProfileName && workbookRepoUrl && defaultViewRepoUrl) {
+              const directUrl = constructDirectUrl({
+                authorProfileName,
+                workbookRepoUrl,
+                defaultViewRepoUrl
+              });
+              if (directUrl) {
+                favorite.directUrl = directUrl;
+              }
+            }
+          }
+          return favorite;
+        });
+
+        const favoriteCount = enrichedData.length;
         console.error(`[get_favorites] Retrieved ${favoriteCount} favorites for ${username}`);
 
-        return createSuccessResult(data);
+        return createSuccessResult(enrichedData);
 
       } catch (error) {
         return handleApiError(error, `fetching favorites for user '${username}'`);

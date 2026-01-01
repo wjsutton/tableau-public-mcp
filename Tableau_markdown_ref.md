@@ -1,10 +1,23 @@
 # Tableau TWB XML Reference for MCP Tool Development
 
+> **📘 Developer Reference Document**
+>
+> This document is for developers who want to understand how Tableau workbook XML is structured and parsed.
+> It was used to build the 7 TWBX analysis tools in this MCP server.
+>
+> **For end users**: You don't need to read this file to use the MCP server. See [README.md](README.md) instead.
+
 ## Purpose
-Build 3 MCP tools to enable AI-powered workbook analysis:
-1. `get_twbx_workbook_structure` — Complete workbook architecture extraction
-2. `get_twbx_calculation_dependencies` — Calculation dependency graph
-3. `get_twbx_lod_expressions` — LOD expression extraction with classification
+This reference guide documents the XML structure of Tableau workbooks (.twb files) and provides implementation patterns for 7 TWBX analysis MCP tools:
+
+**Workbook Analysis Tools:**
+1. `download_workbook_twbx` — Download workbook files from Tableau Public
+2. `unpack_twbx` — Extract contents from .twbx archives
+3. `get_twbx_workbook_structure` — Complete workbook architecture extraction
+4. `get_twbx_calculated_fields` — Extract calculated fields and formulas
+5. `get_twbx_calculation_dependencies` — Calculation dependency graph analysis
+6. `get_twbx_lod_expressions` — LOD expression extraction with classification
+7. `get_twbx_data_profile` — Profile embedded data files
 
 ---
 

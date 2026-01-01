@@ -11,6 +11,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
+import { constructDirectUrl } from "../../utils/urlBuilder.js";
 
 /**
  * Parameter schema for getWorkbookContents tool
@@ -53,8 +54,8 @@ export function getWorkbookContentsTool(server: Server): Tool<typeof paramsSchem
     server,
     name: "get_workbook_contents",
     description: "Retrieves the complete structure of a Tableau Public workbook including " +
-      "all visible sheets, dashboards, and stories with their repository URLs. " +
-      "Returns sheet metadata, types, and configurations. " +
+      "all visible sheets, dashboards, and stories with their repository URLs and direct URLs. " +
+      "Returns sheet metadata, types, configurations, and ready-to-use links for viewing each sheet. " +
       "Requires the workbook name from the Tableau Public URL (e.g., 'GloboxABTestAnalysis_17009696417070'). " +
       "Useful for exploring workbook structure and accessing individual visualizations.",
     paramsSchema: paramsSchema.shape,
@@ -72,6 +73,29 @@ export function getWorkbookContentsTool(server: Server): Tool<typeof paramsSchem
         const data = await cachedGet<{ sheets?: unknown[] }>(
           `/profile/api/workbook/${workbookName}`
         );
+
+        // Enrich sheets with directUrl if workbook context is available
+        if (data && data.sheets && Array.isArray(data.sheets)) {
+          const workbookData = data as any;
+          const { authorProfileName, workbookRepoUrl } = workbookData;
+
+          if (authorProfileName && workbookRepoUrl) {
+            data.sheets = data.sheets.map((sheet: any) => {
+              const { sheetRepoUrl } = sheet;
+              if (sheetRepoUrl) {
+                const directUrl = constructDirectUrl({
+                  authorProfileName,
+                  workbookRepoUrl,
+                  defaultViewRepoUrl: sheetRepoUrl
+                });
+                if (directUrl) {
+                  sheet.directUrl = directUrl;
+                }
+              }
+              return sheet;
+            });
+          }
+        }
 
         const sheetCount = data?.sheets?.length || 0;
         console.error(`[get_workbook_contents] Retrieved ${sheetCount} sheets for ${workbookName}`);

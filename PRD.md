@@ -1,8 +1,8 @@
 # Product Requirements Document: Tableau Public MCP Server
 
-> **📦 Implementation Status**: ✅ **COMPLETE** - All 16 tools implemented, tested, and production-ready
+> **📦 Implementation Status**: ✅ **COMPLETE** - All 22 tools implemented, tested, and production-ready
 >
-> **Last Updated**: 2025-01-27 | **Build Status**: ✅ Passing | **Test Coverage**: Comprehensive
+> **Last Updated**: 2025-12-31 | **Build Status**: ✅ Passing | **Test Coverage**: Comprehensive
 
 ---
 
@@ -14,7 +14,7 @@ This document outlines the architecture and development patterns for building an
 
 ### Purpose
 
-Enable AI applications to interact with Tableau Public content programmatically through a standardized MCP interface, providing access to user profiles, workbooks, visualizations, and discovery features.
+Enable AI applications to interact with Tableau Public content programmatically through a standardised MCP interface, providing access to user profiles, workbooks, visualisations, and discovery features.
 
 ### Scope
 
@@ -30,7 +30,7 @@ Enable AI applications to interact with Tableau Public content programmatically 
 ```
 tableau-public-mcp/
 ├── src/
-│   ├── index.ts              # Entry point, server initialization
+│   ├── index.ts              # Entry point, server initialisation
 │   ├── config.ts             # Configuration management
 │   ├── server.ts             # MCP server setup and tool registration
 │   ├── tools/
@@ -308,7 +308,7 @@ interface ToolParams<Args extends ZodRawShape | undefined> {
 
 ### Key Methods
 
-- **`constructor(params: ToolParams<Args>)`**: Initializes the tool
+- **`constructor(params: ToolParams<Args>)`**: Initialises the tool
 - **`callback(args)`**: Executes the tool's main logic
 - **Type safety**: Full TypeScript generics ensure parameter types match schemas
 
@@ -928,7 +928,7 @@ The implementation is complete and production-ready. To use:
 
 ### ✅ Completed Implementation
 
-This PRD was successfully implemented with all 16 tools fully functional. Key deliverables:
+This PRD was successfully implemented with all 22 tools fully functional. Key deliverables:
 
 **Infrastructure (10 files)**
 - ✅ Project configuration (package.json, tsconfig.json, vitest.config.ts, .gitignore)
@@ -937,12 +937,13 @@ This PRD was successfully implemented with all 16 tools fully functional. Key de
 - ✅ Server setup with correct MCP SDK patterns
 - ✅ Entry point with signal handling
 
-**Tools Implemented (16 total with tests)**
+**Tools Implemented (22 total with tests)**
 - ✅ User Profile Tools: get_user_profile, get_user_profile_categories, get_user_profile_basic
 - ✅ Workbook Tools: get_workbooks_list, get_workbook_details, get_workbook_contents, get_related_workbooks
 - ✅ Social Tools: get_followers, get_following, get_favorites
 - ✅ Discovery Tools: search_visualizations, get_viz_of_day, get_featured_authors
 - ✅ Media Tools: get_workbook_image, get_workbook_thumbnail
+- ✅ TWBX Analysis Tools: download_workbook_twbx, unpack_twbx, get_twbx_calculated_fields, get_twbx_workbook_structure, get_twbx_calculation_dependencies, get_twbx_lod_expressions, get_twbx_data_profile
 
 **Documentation**
 - ✅ Comprehensive README with examples and configuration
@@ -950,7 +951,7 @@ This PRD was successfully implemented with all 16 tools fully functional. Key de
 - ✅ Updated PRD with implementation learnings
 
 **Quality Assurance**
-- ✅ 16 test files with comprehensive coverage
+- ✅ 22 test files with comprehensive coverage
 - ✅ TypeScript compilation successful (0 errors)
 - ✅ All tools follow consistent patterns
 - ✅ Full type safety with Zod validation
@@ -965,11 +966,11 @@ This PRD was successfully implemented with all 16 tools fully functional. Key de
 
 ### 📊 Project Metrics
 
-- **Total Files Created**: 51+ files
-- **Lines of Code**: ~5,000+ LOC
-- **Test Coverage**: 16 test files (one per tool)
+- **Total Files Created**: 70+ files
+- **Lines of Code**: ~7,500+ LOC
+- **Test Coverage**: 22 test files (one per tool)
 - **Build Time**: < 10 seconds
-- **Dependencies**: 8 runtime, 6 dev dependencies
+- **Dependencies**: 9 runtime, 9 dev dependencies
 - **Compilation Errors**: 0
 
 ### 🔑 Key Patterns Established
@@ -1019,7 +1020,7 @@ This PRD was successfully implemented with all 16 tools fully functional. Key de
 - Required properties needed explicit extraction from schema keys
 
 **Recommended for Future Tools:**
-- Follow the established 16-tool pattern exactly
+- Follow the established 22-tool pattern exactly
 - Always mock apiClient at module level in tests
 - Use handleApiError() for consistent error responses
 - Include both `content` and `activeForm` in tool descriptions
@@ -1074,4 +1075,5 @@ This implementation was built and tested with the following versions:
 **Document Version**: 2.0 (Post-Implementation)
 **Original PRD**: 1.0
 **Implementation Date**: 2025-01-27
+**Last Updated**: 2025-12-31
 **Status**: ✅ Complete and Validated

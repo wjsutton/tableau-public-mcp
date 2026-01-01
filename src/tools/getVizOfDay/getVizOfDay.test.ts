@@ -82,6 +82,32 @@ describe("getVizOfDay", () => {
     );
   });
 
+  it("should include directUrl in viz results", async () => {
+    const mockVotd = [
+      {
+        title: "Sales Analysis",
+        authorProfileName: "tableau.user",
+        authorDisplayName: "Tableau User",
+        workbookRepoUrl: "SalesAnalysis_17164464702070",
+        defaultViewRepoUrl: "SalesAnalysis_17164464702070/sheets/Dashboard",
+        curatedAt: "2024-01-01T00:00:00.000Z"
+      }
+    ];
+
+    vi.mocked(cachedGet).mockResolvedValueOnce(mockVotd);
+
+    const result = await tool.callback({});
+
+    expect(result.isOk()).toBe(true);
+    const value = result.unwrap();
+    const parsedResponse = JSON.parse(value.content[0].text);
+
+    // Verify directUrl is present and correctly formatted
+    expect(parsedResponse[0].directUrl).toBe(
+      "https://public.tableau.com/app/profile/tableau.user/viz/SalesAnalysis_17164464702070/Dashboard"
+    );
+  });
+
   it("should handle errors", async () => {
     const error = {
       response: {
