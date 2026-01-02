@@ -108,15 +108,21 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
             console.error(`[get_viz_of_day] Fetching ${maxResults} VOTD entries with parallel pagination`);
           }
 
-          // API returns array directly, not { vizzes: [...] }
+          // API returns object with 'contents' array: { current, next, contents: [...] }
           // Also API requires limit=12 exactly
           const allVizzes = await paginateByPageParallel(
             async (pageNum: number, _pageLimit: number) => {
-              const data = await cachedGet<unknown[]>(
+              const data = await cachedGet<unknown>(
                 "/public/apis/bff/discover/v2/vizzes/viz-of-the-day",
                 { page: pageNum, limit: 12 }
               );
-              return data || [];
+              // Add defensive check for non-array responses
+              if (Array.isArray(data)) {
+                return data;
+              } else if (data && typeof data === 'object' && 'contents' in data && Array.isArray((data as any).contents)) {
+                return (data as any).contents;
+              }
+              return [];
             },
             maxResults,
             { maxResults, pageSize: 12 }
@@ -168,18 +174,26 @@ export function getVizOfDayTool(server: Server): Tool<typeof paramsSchema.shape>
         }
 
         // Single page request with caching
-        // API returns array directly, requires limit=12
+        // API returns object with 'contents' array: { current, next, contents: [...] }
         if (config.logLevel === "debug") {
           console.error(`[get_viz_of_day] Fetching VOTD winners (page=${page})`);
         }
 
-        const data = await cachedGet<unknown[]>(
+        const data = await cachedGet<unknown>(
           "/public/apis/bff/discover/v2/vizzes/viz-of-the-day",
           { page, limit: 12 }
         );
 
-        // Apply date filter if specified
-        let vizzes = data || [];
+        // Apply defensive type checking and date filter if specified
+        let vizzes: unknown[] = [];
+        if (Array.isArray(data)) {
+          vizzes = data;
+        } else if (data && typeof data === 'object' && 'contents' in data && Array.isArray((data as any).contents)) {
+          vizzes = (data as any).contents;
+        } else {
+          console.error('[get_viz_of_day] Unexpected response format:', typeof data);
+          vizzes = [];
+        }
         if (filterMonth && filterYear) {
           vizzes = vizzes.filter((viz: unknown) => {
             const vizData = viz as { curatedAt?: string };

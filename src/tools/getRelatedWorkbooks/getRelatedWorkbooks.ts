@@ -17,9 +17,9 @@ import { constructDirectUrl } from "../../utils/urlBuilder.js";
  * Parameter schema for getRelatedWorkbooks tool
  */
 const paramsSchema = z.object({
-  workbookUrl: z.string()
-    .min(1, "Workbook URL cannot be empty")
-    .describe("Workbook repository URL (e.g., 'username/workbook-name')"),
+  workbookName: z.string()
+    .min(1, "Workbook name cannot be empty")
+    .describe("Workbook name only (e.g., 'RunningforOlympicGold'). Do not include username prefix."),
   count: z.coerce.number()
     .int()
     .min(1)
@@ -47,7 +47,7 @@ type GetRelatedWorkbooksParams = z.infer<typeof paramsSchema>;
  * ```typescript
  * // Request
  * {
- *   "workbookUrl": "datavizblog/sales-dashboard",
+ *   "workbookName": "sales-dashboard",
  *   "count": 5
  * }
  *
@@ -61,7 +61,7 @@ export function getRelatedWorkbooksTool(server: Server): Tool<typeof paramsSchem
     description: "Retrieves recommended workbooks related to a specific Tableau Public workbook. " +
       "Returns up to 20 similar workbooks based on Tableau Public's recommendation algorithm. " +
       "Includes workbook metadata such as titles, authors, view counts, thumbnails, and direct URLs. " +
-      "Requires the workbook repository URL in the format 'username/workbook-name'. " +
+      "Requires the workbook name only (e.g., 'RunningforOlympicGold'), not the full path with username. " +
       "Useful for content discovery and finding similar visualizations.",
     paramsSchema: paramsSchema.shape,
     annotations: {
@@ -69,14 +69,14 @@ export function getRelatedWorkbooksTool(server: Server): Tool<typeof paramsSchem
     },
 
     callback: async (args: GetRelatedWorkbooksParams): Promise<Ok<CallToolResult>> => {
-      const { workbookUrl, count = 10 } = args;
+      const { workbookName, count = 10 } = args;
 
       try {
-        console.error(`[get_related_workbooks] Fetching ${count} related workbooks for: ${workbookUrl}`);
+        console.error(`[get_related_workbooks] Fetching ${count} related workbooks for: ${workbookName}`);
 
         // Call Tableau Public API with caching
         const response = await cachedGet<unknown[] | { workbooks?: unknown[] }>(
-          `/public/apis/bff/workbooks/v2/${workbookUrl}/recommended-workbooks`,
+          `/public/apis/bff/workbooks/v2/${workbookName}/recommended-workbooks`,
           { count }
         );
 
@@ -105,7 +105,7 @@ export function getRelatedWorkbooksTool(server: Server): Tool<typeof paramsSchem
         return createSuccessResult(enrichedData);
 
       } catch (error) {
-        return handleApiError(error, `fetching related workbooks for '${workbookUrl}'`);
+        return handleApiError(error, `fetching related workbooks for '${workbookName}'`);
       }
     }
   });

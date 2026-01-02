@@ -35,15 +35,13 @@ const paramsSchema = z.object({
     .int()
     .min(0)
     .optional()
-    .describe("Starting index for pagination (default: 0). " +
-      "Not used for tableau-ambassadors-north-america endpoint."),
+    .describe("Starting index for pagination (default: 0)"),
 
   limit: z.preprocess(
     (val) => val === undefined ? undefined : Number(val),
     z.union([z.literal(1), z.literal(12)]).optional()
   )
-    .describe("Number of results to return: must be 1 or 12 (default: 12). " +
-      "Not used for tableau-ambassadors-north-america endpoint.")
+    .describe("Number of results to return: must be 1 or 12 (default: 12)")
 });
 
 type GetFeaturedAuthorsParams = z.infer<typeof paramsSchema>;
@@ -63,7 +61,7 @@ type GetFeaturedAuthorsParams = z.infer<typeof paramsSchema>;
  * - Specialties and focus areas
  * - Social links
  *
- * Pagination is supported for visionaries endpoints (max 12 per request).
+ * Pagination is supported for all endpoints (max 12 per request).
  * Useful for discovering influential creators and quality content sources.
  *
  * @param server - The MCP server instance
@@ -88,7 +86,7 @@ export function getFeaturedAuthorsTool(server: Server): Tool<typeof paramsSchema
     description: "Retrieves authors from Tableau Public community groups. " +
       "Supports Hall of Fame Visionaries, Tableau Visionaries (default), and " +
       "Tableau Ambassadors North America. Returns profiles, biographies, specialties, " +
-      "and social links. Pagination supported for visionaries (max 12 per request). " +
+      "and social links. Pagination supported for all groups (max 12 per request). " +
       "Useful for discovering influential creators, learning from top community members, " +
       "and finding quality content sources.",
     paramsSchema: paramsSchema.shape,
@@ -112,20 +110,35 @@ export function getFeaturedAuthorsTool(server: Server): Tool<typeof paramsSchema
             endpoint = "/public/apis/bff/discover/v3/authors/tableau-visionaries";
             break;
           case "tableau-ambassadors-north-america":
-            endpoint = "/public/apis/bff/discover/v1/author_channels/tableau-ambassadors-north-america";
+            endpoint = "/public/apis/bff/discover/v2/authors/tableau-ambassadors-north-america";
             break;
           default:
             endpoint = "/public/apis/bff/discover/v3/authors/tableau-visionaries";
         }
 
-        // Ambassadors endpoint doesn't support pagination
-        const isAmbassadors = group === "tableau-ambassadors-north-america";
-        const data = await cachedGet<{ authors?: unknown[] }>(
+        // All endpoints support pagination
+        const data = await cachedGet<unknown>(
           endpoint,
-          isAmbassadors ? undefined : { startIndex, limit }
+          { startIndex, limit }
         );
 
-        const authorCount = data?.authors?.length || (Array.isArray(data) ? data.length : 0);
+        // Handle different response structures
+        let authorCount = 0;
+        if (Array.isArray(data)) {
+          authorCount = data.length;
+        } else if (data && typeof data === 'object') {
+          const dataObj = data as any;
+          // Check for various possible property names
+          if (dataObj.authors && Array.isArray(dataObj.authors)) {
+            authorCount = dataObj.authors.length;
+          } else if (dataObj.contents && Array.isArray(dataObj.contents)) {
+            authorCount = dataObj.contents.length;
+          } else {
+            // Log the actual response structure for debugging
+            console.error(`[get_featured_authors] Unexpected response structure for ${group}:`, Object.keys(dataObj));
+          }
+        }
+
         console.error(`[get_featured_authors] Retrieved ${authorCount} authors from ${group}`);
 
         return createSuccessResult(data);
