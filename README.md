@@ -385,8 +385,8 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 Enjoy this project? Support it in [Tableau's Hackathon]()
 
-<a href="https://www.youtube.com/watch?v=Jf2ocrb-kY4">
-    <img src="https://img.youtube.com/vi/Jf2ocrb-kY4/maxresdefault.jpg" width ="48%">
+<a href="https://www.youtube.com/watch?v=6UsTuENLVAU">
+    <img src="https://img.youtube.com/vi/6UsTuENLVAU/maxresdefault.jpg" width ="48%">
 </a>
 
 For issues and questions:
