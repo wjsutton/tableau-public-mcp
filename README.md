@@ -2,11 +2,6 @@
 
 A Model Context Protocol (MCP) server that enables AI applications to interact with Tableau Public content programmatically. This server provides 22 tools for accessing user profiles, workbooks, visualisations, social connections, discovery features, and workbook analysis through Tableau Public's REST APIs.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
-[![Node](https://img.shields.io/badge/Node-20+-green)](https://nodejs.org/)
-[![MCP](https://img.shields.io/badge/MCP-1.0-purple)](https://modelcontextprotocol.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
-
 ## Features
 
 - **22 Comprehensive Tools** covering all major Tableau Public API endpoints and workbook analysis
@@ -41,7 +36,7 @@ A Model Context Protocol (MCP) server that enables AI applications to interact w
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/tableau-public-mcp.git
+git clone https://github.com/wjsutton/tableau-public-mcp.git
 cd tableau-public-mcp
 
 # Install dependencies
@@ -52,6 +47,11 @@ npm run build
 ```
 
 ## Quick Start
+
+### Video Setup Guide for Claude Desktop and VSCode (GitHub Copilot)
+<a href="https://www.youtube.com/watch?v=Jf2ocrb-kY4">
+    <img src="https://img.youtube.com/vi/Jf2ocrb-kY4/maxresdefault.jpg" width ="48%">
+</a>
 
 ### Configure Claude Desktop
 
@@ -72,16 +72,6 @@ Add the server to your Claude Desktop configuration file:
     }
   }
 }
-```
-
-### Test with MCP Inspector
-
-```bash
-# Build the project
-npm run build
-
-# Run with MCP Inspector
-npx @modelcontextprotocol/inspector node ./build/index.js
 ```
 
 ## Available Tools
@@ -142,160 +132,16 @@ The server provides 22 tools organised into 6 categories:
 
 ## Usage Examples
 
-### Example 1: Get User Profile
-
-```typescript
-// Request
-{
-  "tool": "get_user_profile",
-  "params": {
-    "username": "datavizblog"
-  }
-}
-
-// Response includes:
-{
-  "displayName": "Data Viz Blog",
-  "workbookCount": 150,
-  "followers": 1200,
-  "following": 50,
-  "favourites": 75,
-  "recentWorkbooks": [...]
-}
-```
-
-### Example 2: Search for COVID Dashboards
-
-```typescript
-// Request
-{
-  "tool": "search_visualizations",
-  "params": {
-    "query": "COVID-19",
-    "type": "vizzes",
-    "count": 10
-  }
-}
-
-// Response includes ranked search results with titles, authors, and metadata
-```
-
-### Example 3: Get Workbook List with Pagination
-
-```typescript
-// Request
-{
-  "tool": "get_workbooks_list",
-  "params": {
-    "username": "datavizblog",
-    "start": 0,
-    "count": 50,
-    "visibility": "NON_HIDDEN"
-  }
-}
-
-// Response includes up to 50 workbooks with full metadata
-```
-
-### Example 4: Get Viz of the Day Winners
-
-```typescript
-// Request
-{
-  "tool": "get_viz_of_day",
-  "params": {
-    "page": 0,
-    "limit": 12
-  }
-}
-
-// Response includes recent VOTD winners with details
-```
-
-### Example 5: Get Workbook Image URL
-
-```typescript
-// Request
-{
-  "tool": "get_workbook_image",
-  "params": {
-    "workbookUrl": "datavizblog/sales-dashboard",
-    "viewName": "Dashboard1"
-  }
-}
-
-// Response includes:
-{
-  "imageUrl": "https://public.tableau.com/views/datavizblog/sales-dashboard/Dashboard1.png?:display_static_image=y&:showVizHome=n",
-  "workbookUrl": "datavizblog/sales-dashboard",
-  "viewName": "Dashboard1"
-}
-```
-
-### Example 6: Direct URLs for Visualisations
-
-Many tools automatically include a `directUrl` field in their responses, providing a ready-to-use link to view the visualisation on Tableau Public. This eliminates the need to manually construct URLs:
-
-```typescript
-// Request: Search for visualisations
-{
-  "tool": "search_visualizations",
-  "params": {
-    "query": "sales dashboard",
-    "count": 5
-  }
-}
-
-// Response includes directUrl for each workbook:
-{
-  "results": [
-    {
-      "workbook": {
-        "title": "Sales Performance Dashboard",
-        "authorProfileName": "datavizblog",
-        "workbookRepoUrl": "SalesDashboard_17164464702070",
-        "defaultViewRepoUrl": "SalesDashboard_17164464702070/sheets/Overview",
-        "viewCount": 15000,
-        "directUrl": "https://public.tableau.com/app/profile/datavizblog/viz/SalesDashboard_17164464702070/Overview"
-      }
-    }
-  ]
-}
-
-// Request: Get workbook details
-{
-  "tool": "get_workbook_details",
-  "params": {
-    "workbookName": "MarketingDashboard_17164464702070"
-  }
-}
-
-// Response includes directUrl:
-{
-  "title": "Marketing Campaign Dashboard",
-  "authorProfileName": "tableau.user",
-  "workbookRepoUrl": "MarketingDashboard_17164464702070",
-  "defaultViewRepoUrl": "MarketingDashboard_17164464702070/sheets/Overview",
-  "directUrl": "https://public.tableau.com/app/profile/tableau.user/viz/MarketingDashboard_17164464702070/Overview",
-  "viewCount": 8500
-}
-```
-
-**Tools with directUrl support:**
-- `search_visualizations` - directUrl on each workbook result
-- `get_user_profile` - directUrl on each recent workbook
-- `get_workbooks_list` - directUrl on each workbook
-- `get_workbook_details` - directUrl on the workbook
-- `get_workbook_contents` - directUrl on each sheet/dashboard
-- `get_related_workbooks` - directUrl on each related workbook
-- `get_favorites` - directUrl on favourited workbooks (when data available)
-- `get_viz_of_day` - directUrl on each featured visualisation
+Visit [https://wjsutton.github.io/tableau-public-mcp-examples/](https://wjsutton.github.io/tableau-public-mcp-examples/) for:
+- Use Cases
+- Examples
+- Prompt Templates
 
 ## Configuration
 
 ### Environment Variables
 
-The server supports the following optional environment variables:
+No environment variables are needed by default. The server supports the following optional environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -303,17 +149,6 @@ The server supports the following optional environment variables:
 | `LOG_LEVEL` | Logging verbosity (debug, info, warn, error) | `info` |
 | `API_TIMEOUT` | Request timeout in milliseconds | `30000` |
 | `TABLEAU_PUBLIC_BASE_URL` | Base URL for Tableau Public API | `https://public.tableau.com` |
-
-### Example
-
-```bash
-# Set environment variables before starting
-export MAX_RESULT_LIMIT=500
-export LOG_LEVEL=debug
-
-# Run the server
-node ./build/index.js
-```
 
 ## Development
 
@@ -547,6 +382,12 @@ MIT License - see [LICENSE](LICENSE) file for details
 - Model Context Protocol by [Anthropic](https://www.anthropic.com)
 
 ## Support
+
+Enjoy this project? Support it in [Tableau's Hackathon]()
+
+<a href="https://www.youtube.com/watch?v=Jf2ocrb-kY4">
+    <img src="https://img.youtube.com/vi/Jf2ocrb-kY4/maxresdefault.jpg" width ="48%">
+</a>
 
 For issues and questions:
 - Open an issue on [GitHub Issues](https://github.com/yourusername/tableau-public-mcp/issues)
