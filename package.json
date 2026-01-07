@@ -25,8 +25,8 @@
     "visualization",
     "data-viz"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Will Sutton",
+  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
     "adm-zip": "^0.5.16",
@@ -42,10 +42,11 @@
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^20.19.27",
     "@types/papaparse": "^5.5.2",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.2",
+    "@typescript-eslint/parser": "^8.18.2",
     "@vitest/coverage-v8": "^4.0.16",
-    "eslint": "^8.57.1",
+    "eslint": "^9.18.0",
+    "globals": "^17.0.0",
     "typescript": "^5.7.2",
     "vitest": "^4.0.16"
   },
