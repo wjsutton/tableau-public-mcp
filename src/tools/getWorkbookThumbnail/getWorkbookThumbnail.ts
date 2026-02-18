@@ -11,6 +11,7 @@ import { Ok } from "ts-results-es";
 import { Tool } from "../tool.js";
 import { createSuccessResult, handleApiError } from "../../utils/errorHandling.js";
 import { getConfig } from "../../config.js";
+import { cachedGet } from "../../utils/cachedApiClient.js";
 
 /**
  * Parameter schema for getWorkbookThumbnail tool
@@ -21,7 +22,8 @@ const paramsSchema = z.object({
     .describe("Workbook repository URL - the workbookRepoUrl from API responses (e.g., 'SalesForecastDashboard_17646104017530')"),
   viewName: z.string()
     .min(1, "View name cannot be empty")
-    .describe("Name of the specific view/sheet (spaces and periods removed, e.g., 'Dashboard1')"),
+    .optional()
+    .describe("Name of the specific view/sheet. If omitted, auto-resolved from the workbook's default view. When provided, spaces and periods should be removed (e.g., 'Dashboard1')."),
   workbookName: z.string()
     .optional()
     .describe("Canonical workbook name (without numeric suffix). If not provided, will attempt to derive from workbookUrl by removing trailing _digits. Example: For 'olympic_ages_17646104017530', use 'olympic_ages'."),
@@ -47,28 +49,25 @@ type GetWorkbookThumbnailParams = z.infer<typeof paramsSchema>;
  * from the workbookRepoUrl returned by API responses.
  *
  * Important notes:
+ * - The viewName is auto-resolved from the workbook's default view if not provided (recommended)
+ * - View names frequently differ from workbook names, so auto-resolution is preferred
  * - The workbookName parameter can override automatic derivation
- * - Remove spaces and periods from the view name
- * - Use the exact view name as it appears in the workbook structure
  *
  * @param server - The MCP server instance
  * @returns Configured Tool instance
  *
  * @example
  * ```typescript
- * // Request with automatic canonical name derivation
+ * // Recommended: Let viewName be auto-resolved
+ * {
+ *   "workbookUrl": "DjokovicNadalrivalry"
+ * }
+ * // Auto-resolves viewName to "Rivalry" from workbook metadata
+ *
+ * // With explicit viewName (if you already know it)
  * {
  *   "workbookUrl": "olympic_ages_17646104017530",
  *   "viewName": "TheAgeofOlympians"
- * }
- * // Derives canonical name: "olympic_ages"
- * // Generates: /static/images/ol/olympic_ages/TheAgeofOlympians/4_3.png
- *
- * // Request with explicit canonical name
- * {
- *   "workbookUrl": "olympic_ages_17646104017530",
- *   "viewName": "TheAgeofOlympians",
- *   "workbookName": "olympic_ages"
  * }
  * ```
  */
@@ -76,11 +75,9 @@ export function getWorkbookThumbnailTool(server: Server): Tool<typeof paramsSche
   return new Tool({
     server,
     name: "get_workbook_thumbnail",
-    description: "Generates thumbnail URLs for a Tableau Public visualization using the static images endpoint. " +
-      "Requires the canonical workbook name (without numeric suffix) for reliable results. " +
+    description: "Generates thumbnail URLs for a Tableau Public visualization. " +
+      "Requires the workbook repository URL. The view name is auto-resolved from the workbook's default view if not explicitly provided — this is the recommended usage, since view names frequently differ from workbook names. " +
       "If workbookName is not provided, the tool automatically removes trailing numeric suffixes (e.g., '_17646104017530') from workbookUrl. " +
-      "Example: For workbookUrl 'olympic_ages_17646104017530', it derives 'olympic_ages'. " +
-      "View names should have spaces and periods removed (e.g., 'Dashboard 1' → 'Dashboard1'). " +
       "Supports two URL formats: thumb path (default) and static path (4_3.png).",
     paramsSchema: paramsSchema.shape,
     annotations: {
@@ -88,9 +85,32 @@ export function getWorkbookThumbnailTool(server: Server): Tool<typeof paramsSche
     },
 
     callback: async (args: GetWorkbookThumbnailParams): Promise<Ok<CallToolResult>> => {
-      const { workbookUrl, viewName, workbookName, useStaticPath = false } = args;
+      const { workbookUrl, workbookName, useStaticPath = false } = args;
+      let { viewName } = args;
 
       try {
+        // Auto-resolve viewName if not provided
+        if (!viewName) {
+          console.error(`[get_workbook_thumbnail] viewName not provided, fetching from workbook details...`);
+          const details = await cachedGet(`/profile/api/single_workbook/${workbookUrl}`) as {
+            defaultViewName?: string;
+            defaultViewRepoUrl?: string;
+          };
+
+          // Try defaultViewName first, fall back to defaultViewRepoUrl
+          const resolvedViewName = details.defaultViewName || details.defaultViewRepoUrl;
+
+          if (!resolvedViewName) {
+            throw new Error(
+              `Could not resolve default view for "${workbookUrl}". Provide viewName explicitly.`
+            );
+          }
+
+          // Strip spaces, periods, and special characters per Tableau thumbnail API requirements
+          viewName = resolvedViewName.replace(/[\s.\[\]'&#?!:,()]/g, '');
+          console.error(`[get_workbook_thumbnail] Auto-resolved viewName: ${resolvedViewName} → ${viewName}`);
+        }
+
         console.error(`[get_workbook_thumbnail] Generating thumbnail URL for: ${workbookUrl}/${viewName} (static=${useStaticPath})`);
 
         const config = getConfig();
@@ -114,6 +134,7 @@ export function getWorkbookThumbnailTool(server: Server): Tool<typeof paramsSche
           workbookUrl,
           canonicalWorkbookName: canonicalName,
           viewName,
+          viewNameAutoResolved: !args.viewName,
           pathType: useStaticPath ? "static" : "thumb",
           description: "Thumbnail-sized preview image of the visualization",
           usage: "This URL can be used in <img> tags for preview galleries and workbook lists",
