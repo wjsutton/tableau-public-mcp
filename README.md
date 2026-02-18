@@ -29,10 +29,28 @@ A Model Context Protocol (MCP) server that enables AI applications to interact w
 
 ### Prerequisites
 
-- Node.js 20 or higher
-- npm or yarn package manager
+- Node.js 20 or higher (includes npm and npx)
+
+### Install via npm (Recommended)
+
+No local setup needed — run directly with npx:
+
+```json
+{
+  "mcpServers": {
+    "tableau-public": {
+      "command": "npx",
+      "args": ["-y", "@wjsutton/tableau-public-mcp-server@latest"]
+    }
+  }
+}
+```
+
+Add this to your MCP client configuration file (see [Quick Start](#quick-start) for file locations).
 
 ### Install from Source
+
+Alternatively, clone and build locally:
 
 ```bash
 # Clone the repository
@@ -61,7 +79,20 @@ Add the server to your Claude Desktop configuration file:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-**Configuration:**
+**Configuration (npm):**
+
+```json
+{
+  "mcpServers": {
+    "tableau-public": {
+      "command": "npx",
+      "args": ["-y", "@wjsutton/tableau-public-mcp-server@latest"]
+    }
+  }
+}
+```
+
+**Configuration (from source):**
 
 ```json
 {

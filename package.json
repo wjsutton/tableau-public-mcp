@@ -1,11 +1,11 @@
 {
-  "name": "@tableau-public/mcp-server",
+  "name": "@wjsutton/tableau-public-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for Tableau Public APIs - enables AI applications to interact with Tableau Public content programmatically",
   "type": "module",
   "main": "./build/index.js",
   "bin": {
-    "tableau-public-mcp-server": "./build/index.js"
+    "tableau-public-mcp-server": "build/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -27,6 +27,15 @@
   ],
   "author": "Will Sutton",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wjsutton/tableau-public-mcp.git"
+  },
+  "files": [
+    "build/",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
     "adm-zip": "^0.5.16",
