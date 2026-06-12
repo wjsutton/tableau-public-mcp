@@ -146,15 +146,15 @@ The server provides 22 tools organised into 6 categories:
 
 | Tool | Description | API Reference |
 |------|-------------|---------------|
-| `get_workbook_image` | Returns URL to full-size PNG screenshot of a visualisation. Requires workbookUrl (e.g., "username/workbook-name") and viewName (sheet/dashboard name). Image displays static visualisation without interactivity | [Workbook Image API](https://github.com/wjsutton/tableau_public_api#workbook-image) |
-| `get_workbook_thumbnail` | Returns URL to thumbnail-sized preview image of a visualisation. Requires workbookUrl and viewName. Smaller file size ideal for gallery views and previews | [Workbook Thumbnail API](https://github.com/wjsutton/tableau_public_api#workbook-thumbnail) |
+| `get_workbook_image` | Returns the full-size visualisation image **inline** as MCP image content (no filesystem coordination, so it works for local, sandboxed, and remote callers). Requires workbookUrl (e.g., "username/workbook-name") and viewName. Oversized images are downscaled to fit the inline response limit (~1 MB, configurable). Pass `save_path` (absolute recommended) to also write the **full-resolution** file in the extension's format; nothing is written to temp otherwise | [Workbook Image API](https://github.com/wjsutton/tableau_public_api#workbook-image) |
+| `get_workbook_thumbnail` | Returns a thumbnail-sized preview image **inline** as MCP image content. Requires workbookUrl; viewName is auto-resolved from the default view if omitted. Tries the full then suffix-stripped name to avoid Tableau's placeholder image (warns if only a placeholder is found). Pass `save_path` (absolute recommended) to also write the thumbnail to disk; nothing is written to temp otherwise | [Workbook Thumbnail API](https://github.com/wjsutton/tableau_public_api#workbook-thumbnail) |
 
 ### TWBX Analysis Tools (7)
 
 | Tool | Description | API Reference |
 |------|-------------|---------------|
-| `download_workbook_twbx` | Downloads .twbx file to local temp directory. First verifies allowDataAccess flag, then downloads the workbook containing XML definition, data extracts, and embedded assets. Returns file path, size, and metadata | [Download Workbook API](https://github.com/wjsutton/tableau_public_api#download-workbook) |
-| `unpack_twbx` | Extracts contents from .twbx ZIP archive. Returns paths to main TWB file, data sources, and embedded files. Creates organised directory structure with workbook XML, data extracts, images, and other assets | Local processing |
+| `download_workbook_twbx` | Downloads the .twbx to `outputPath` (absolute recommended) or `TABLEAU_MCP_OUTPUT_DIR` (default `<home>/tableau-public-mcp`) — never the host temp directory or the server's cwd — so sandboxed/containerised callers can read it. First verifies allowDataAccess flag, then downloads the workbook containing XML definition, data extracts, and embedded assets. Returns the long-form file path, size, and metadata | [Download Workbook API](https://github.com/wjsutton/tableau_public_api#download-workbook) |
+| `unpack_twbx` | Extracts contents from .twbx ZIP archive. By default extracts **beside the input file** at `<directory of the .twbx>/extracted/<workbook-name>` so any caller that can read the .twbx can also read the extracted files (pass `extractTo` to override). If that location is read-only, it falls back to a temp directory and returns a `warning`. Returns the long-form extraction path, the main TWB file, data sources, and embedded files, categorised as workbook XML, data extracts, images, and other assets | Local processing |
 | `get_twbx_calculated_fields` | Parses TWB XML to extract calculated fields, parameters, and source fields. Returns formulas, data types, field roles, dependencies, and supports hidden field filtering. Includes dependency analysis showing root and leaf calculations | Local processing |
 | `get_twbx_workbook_structure` | Analyses workbook XML to return complete structure including worksheets, dashboards, data sources, connections, and sheet hierarchy. Shows workbook organisation and data source relationships | Local processing |
 | `get_twbx_calculation_dependencies` | Builds dependency graph of calculated fields showing which calculations depend on others. Returns dependency chains, orphaned calculations, and complexity metrics to understand calculation architecture | Local processing |
@@ -180,6 +180,16 @@ No environment variables are needed by default. The server supports the followin
 | `LOG_LEVEL` | Logging verbosity (debug, info, warn, error) | `info` |
 | `API_TIMEOUT` | Request timeout in milliseconds | `30000` |
 | `TABLEAU_PUBLIC_BASE_URL` | Base URL for Tableau Public API | `https://public.tableau.com` |
+| `MAX_INLINE_IMAGE_BYTES` | Max size of an image returned inline before it is downscaled to fit (image tools) | `1048576` (1 MB) |
+| `TABLEAU_MCP_OUTPUT_DIR` | Base directory for saved files; relative `save_path`/`outputPath` resolve here (never the server's cwd) | `<home>/tableau-public-mcp` |
+
+### Image & file output
+
+The image tools (`get_workbook_image`, `get_workbook_thumbnail`) return images **inline** as MCP image content by default, so callers in sandboxed/containerised environments receive the image directly with no filesystem coordination. Images larger than `MAX_INLINE_IMAGE_BYTES` are automatically downscaled (preserving aspect ratio) to fit the response; the original dimensions are reported in the accompanying metadata. File output is opt-in via `save_path`, which writes the **full-resolution** image (in the format implied by the file extension) and returns its long-form path. Nothing is ever written to the host temp directory.
+
+**Output paths.** Prefer **absolute** paths for `save_path` / `outputPath`. Relative paths resolve against `TABLEAU_MCP_OUTPUT_DIR` (default `<home>/tableau-public-mcp`) — deliberately **not** the server's current working directory, because sandboxed hosts (e.g. Cowork) launch the server with an unrelated cwd (often `C:\windows\system32`) on a different filesystem from the caller. `download_workbook_twbx` follows the same rule, so sandboxed callers can always read the result — consistent with `unpack_twbx`, which extracts beside the input file.
+
+**Thumbnails.** `get_workbook_thumbnail` tries the full (suffixed) workbook name first and falls back to the suffix-stripped name, preferring whichever returns a real image — because Tableau's thumb endpoint returns an HTTP 200 grey *placeholder* for names that don't exist. If only a placeholder is found, the response includes a `warning`.
 
 ## Development
 

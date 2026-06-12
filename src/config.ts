@@ -5,6 +5,9 @@
  * for customizing server behavior.
  */
 
+import * as os from "os";
+import * as path from "path";
+
 export interface Config {
   /**
    * Maximum number of results to return from API calls
@@ -59,6 +62,27 @@ export interface Config {
    * @default 100
    */
   batchDelayMs: number;
+
+  /**
+   * Maximum size (in bytes) of an image returned inline as MCP image content.
+   * Images larger than this are downscaled to fit (preserving aspect ratio)
+   * before being embedded in the tool response. Full-resolution output is
+   * still written to disk when a save_path is supplied.
+   * @default 1048576 (1 MB)
+   */
+  maxInlineImageBytes: number;
+
+  /**
+   * Base directory used to resolve RELATIVE output paths (save_path / outputPath)
+   * and as the default save location when none is supplied.
+   *
+   * The server process's current working directory is deliberately NOT used:
+   * sandboxed hosts (e.g. Cowork) launch the server with an unrelated cwd
+   * (often C:\windows\system32), so resolving against cwd produces unwritable
+   * paths. Absolute paths supplied by the caller are always honoured as-is.
+   * @default <home>/tableau-public-mcp
+   */
+  outputBaseDir: string;
 }
 
 /**
@@ -86,5 +110,9 @@ export function getConfig(): Config {
     // Pagination settings
     maxConcurrency: parseInt(process.env.MAX_CONCURRENCY || "3", 10),
     batchDelayMs: parseInt(process.env.BATCH_DELAY_MS || "100", 10),
+    // Inline image response settings
+    maxInlineImageBytes: parseInt(process.env.MAX_INLINE_IMAGE_BYTES || "1048576", 10),
+    // Output location for saved files (relative paths resolve against this; never cwd)
+    outputBaseDir: process.env.TABLEAU_MCP_OUTPUT_DIR || path.join(os.homedir(), "tableau-public-mcp"),
   };
 }

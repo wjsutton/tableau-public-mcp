@@ -9,13 +9,14 @@ import { z } from "zod";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Ok } from "ts-results-es";
+import * as path from "path";
 import * as fs from "fs/promises";
 import { Tool } from "../tool.js";
 import { cachedGet } from "../../utils/cachedApiClient.js";
 import { apiClient } from "../../utils/apiClient.js";
 import { createSuccessResult, createErrorResult, handleApiError } from "../../utils/errorHandling.js";
 import { getConfig } from "../../config.js";
-import { ensureTempSubdir, getDownloadPath, formatFileSize } from "../../utils/fileSystem.js";
+import { getDownloadPathIn, formatFileSize, toLongPath } from "../../utils/fileSystem.js";
 
 /**
  * Response shape from the single_workbook API
@@ -35,7 +36,15 @@ interface WorkbookDetailsResponse {
 const paramsSchema = z.object({
   workbookName: z.string()
     .min(1, "Workbook name cannot be empty")
-    .describe("The workbook name from the Tableau Public URL (e.g., 'RacialBiasinFootballCommentary')")
+    .describe("The workbook name from the Tableau Public URL (e.g., 'RacialBiasinFootballCommentary')"),
+  outputPath: z.string()
+    .optional()
+    .describe(
+      "Optional directory to save the .twbx into (parent directories are created). " +
+      "Prefer an ABSOLUTE path. Relative paths resolve against TABLEAU_MCP_OUTPUT_DIR (default <home>/tableau-public-mcp), " +
+      "never the server's working directory (which is unrelated to the caller under sandboxed hosts like Cowork). " +
+      "The file is never written to the host's temp directory."
+    )
 });
 
 type DownloadWorkbookTwbxParams = z.infer<typeof paramsSchema>;
@@ -69,7 +78,9 @@ export function downloadWorkbookTwbxTool(server: Server): Tool<typeof paramsSche
     description: "Downloads a Tableau Public workbook as a .twbx file for offline analysis. " +
       "First verifies that the workbook allows data access (allowDataAccess flag). " +
       "The .twbx file contains the workbook definition (XML), data extracts, and embedded assets. " +
-      "Returns the file path where the .twbx is saved. " +
+      "Saves to 'outputPath' if provided (absolute recommended), otherwise to TABLEAU_MCP_OUTPUT_DIR " +
+      "(default <home>/tableau-public-mcp) — never the host temp directory and never the server's cwd — " +
+      "so sandboxed/containerised callers can read it. Returns the long-form file path. " +
       "Use the unpack_twbx tool to extract and analyze the contents.",
     paramsSchema: paramsSchema.shape,
     annotations: {
@@ -77,7 +88,7 @@ export function downloadWorkbookTwbxTool(server: Server): Tool<typeof paramsSche
     },
 
     callback: async (args: DownloadWorkbookTwbxParams): Promise<Ok<CallToolResult>> => {
-      const { workbookName } = args;
+      const { workbookName, outputPath } = args;
 
       try {
         console.error(`[download_workbook_twbx] Starting download for: ${workbookName}`);
@@ -132,19 +143,24 @@ export function downloadWorkbookTwbxTool(server: Server): Tool<typeof paramsSche
 
         console.error(`[download_workbook_twbx] Downloaded ${formatFileSize(twbxBuffer.length)}`);
 
-        // Step 4: Save to temp directory
-        await ensureTempSubdir("downloads");
-        const filePath = getDownloadPath(workbookName);
+        // Step 4: Save beside the caller's outputs, never %TEMP%, so
+        // sandboxed/containerised callers can read the result. Relative
+        // outputPath resolves against the configured base dir (never cwd, which
+        // is often C:\windows\system32 under sandboxed hosts like Cowork).
+        let filePath = getDownloadPathIn(workbookName, config.outputBaseDir, outputPath);
 
         try {
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
           await fs.writeFile(filePath, twbxBuffer);
+          filePath = await toLongPath(filePath);
         } catch (error) {
           return createErrorResult(
             "Failed to save TWBX file",
             {
               workbookName,
               filePath,
-              error: error instanceof Error ? error.message : String(error)
+              error: error instanceof Error ? error.message : String(error),
+              suggestion: "Provide an absolute 'outputPath', or set TABLEAU_MCP_OUTPUT_DIR. Ensure the directory is writable."
             }
           );
         }

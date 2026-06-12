@@ -169,6 +169,229 @@ export async function fetchAndOptimizeImage(
 }
 
 /**
+ * Result of fetching an image for an inline MCP response
+ */
+export interface InlineImageResult {
+  /** Base64-encoded data of the version embedded inline (may be downscaled to fit the response limit) */
+  data: string;
+  /** MIME type of the image */
+  mimeType: string;
+  /** Buffer of the full-resolution optimized image (suitable for saving to disk) */
+  fullBuffer: Buffer;
+  /** Byte size of the inline version */
+  inlineSize: number;
+  /** Width of the inline version */
+  inlineWidth: number;
+  /** Height of the inline version */
+  inlineHeight: number;
+  /** Byte size of the full-resolution optimized image */
+  fullSize: number;
+  /** Width of the full-resolution optimized image */
+  fullWidth: number;
+  /** Height of the full-resolution optimized image */
+  fullHeight: number;
+  /** Original source image size in bytes */
+  originalSize: number;
+  /** Original source image width */
+  originalWidth: number;
+  /** Original source image height */
+  originalHeight: number;
+  /** Whether the source was resized to honour maxWidth/maxHeight */
+  wasResized: boolean;
+  /** Whether the inline version was further downscaled to fit the response byte limit */
+  wasDownscaledForLimit: boolean;
+  /** Raw original source image bytes (full resolution, original format) — for saving to disk */
+  originalBuffer: Buffer;
+}
+
+/** Encodes a buffer to the requested format/quality, returning buffer + mime type. */
+async function encodeImage(
+  instance: sharp.Sharp,
+  format: Required<ImageOptimizationOptions>["format"],
+  quality: number
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  switch (format) {
+    case "webp":
+      return { buffer: await instance.webp({ quality }).toBuffer(), mimeType: "image/webp" };
+    case "png":
+      return { buffer: await instance.png({ compressionLevel: 9 }).toBuffer(), mimeType: "image/png" };
+    case "jpeg":
+    default:
+      return { buffer: await instance.jpeg({ quality, mozjpeg: true }).toBuffer(), mimeType: "image/jpeg" };
+  }
+}
+
+/**
+ * Fetches an image and prepares it for an inline MCP image-content response.
+ *
+ * The image is resized to fit within maxWidth/maxHeight (preserving aspect
+ * ratio) and compressed. If the encoded result still exceeds `maxInlineBytes`,
+ * it is progressively downscaled (again preserving aspect ratio) until it fits,
+ * so the response is never rejected for size. The full-resolution optimized
+ * buffer is returned separately so callers can persist it via `save_path`.
+ *
+ * Nothing is written to disk here — the caller decides whether to persist.
+ *
+ * @param imageUrl - URL of the image to fetch
+ * @param options - Optimization options plus the inline byte limit
+ * @returns Inline image result with both inline and full-resolution data
+ */
+export async function fetchImageForResponse(
+  imageUrl: string,
+  options?: ImageOptimizationOptions & { maxInlineBytes?: number }
+): Promise<InlineImageResult> {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const maxInlineBytes = options?.maxInlineBytes ?? 1048576; // 1 MB default
+
+  // Fetch the image
+  const response = await axios.get(imageUrl, {
+    responseType: "arraybuffer",
+    timeout: 30000,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+  });
+
+  const originalBuffer = Buffer.from(response.data);
+  const originalSize = originalBuffer.length;
+
+  const originalMetadata = await sharp(originalBuffer).metadata();
+  const originalWidth = originalMetadata.width || 0;
+  const originalHeight = originalMetadata.height || 0;
+
+  // Produce the full-resolution optimized image (honouring requested bounds)
+  const full = await encodeImage(
+    sharp(originalBuffer).resize(opts.maxWidth, opts.maxHeight, {
+      fit: "inside",
+      withoutEnlargement: true,
+    }),
+    opts.format,
+    opts.quality
+  );
+  const fullMeta = await sharp(full.buffer).metadata();
+  const fullWidth = fullMeta.width || opts.maxWidth;
+  const fullHeight = fullMeta.height || opts.maxHeight;
+  const wasResized = originalWidth > opts.maxWidth || originalHeight > opts.maxHeight;
+
+  // If the full-resolution version already fits, use it inline as-is.
+  let inlineBuffer = full.buffer;
+  let inlineWidth = fullWidth;
+  let inlineHeight = fullHeight;
+  let wasDownscaledForLimit = false;
+
+  // Otherwise, progressively downscale (preserving aspect ratio) until it fits.
+  let targetMaxDim = Math.max(fullWidth, fullHeight);
+  let attempts = 0;
+  while (inlineBuffer.length > maxInlineBytes && attempts < 12) {
+    wasDownscaledForLimit = true;
+    // Estimate the linear scale needed (area scales ~quadratically with bytes).
+    const ratio = Math.sqrt(maxInlineBytes / inlineBuffer.length);
+    targetMaxDim = Math.max(64, Math.floor(targetMaxDim * Math.min(ratio, 0.9)));
+
+    const encoded = await encodeImage(
+      sharp(originalBuffer).resize(targetMaxDim, targetMaxDim, {
+        fit: "inside",
+        withoutEnlargement: true,
+      }),
+      opts.format,
+      opts.quality
+    );
+    inlineBuffer = encoded.buffer;
+    const meta = await sharp(inlineBuffer).metadata();
+    inlineWidth = meta.width || targetMaxDim;
+    inlineHeight = meta.height || targetMaxDim;
+    attempts++;
+
+    if (targetMaxDim <= 64) break; // floor reached; accept whatever we have
+  }
+
+  return {
+    data: inlineBuffer.toString("base64"),
+    mimeType: full.mimeType,
+    fullBuffer: full.buffer,
+    inlineSize: inlineBuffer.length,
+    inlineWidth,
+    inlineHeight,
+    fullSize: full.buffer.length,
+    fullWidth,
+    fullHeight,
+    originalSize,
+    originalWidth,
+    originalHeight,
+    wasResized,
+    wasDownscaledForLimit,
+    originalBuffer,
+  };
+}
+
+/**
+ * Result of encoding a full-resolution image for saving to disk
+ */
+export interface FullResolutionImage {
+  /** Encoded bytes */
+  buffer: Buffer;
+  /** MIME type of the encoded image */
+  mimeType: string;
+  /** Image width */
+  width: number;
+  /** Image height */
+  height: number;
+}
+
+/**
+ * Maps a file extension to an image format, defaulting to the supplied format
+ * when the extension is unknown/absent.
+ *
+ * @param filePath - Destination file path (its extension drives the format)
+ * @param fallback - Format to use when the extension is not a known image type
+ */
+export function formatFromExtension(
+  filePath: string,
+  fallback: Required<ImageOptimizationOptions>["format"]
+): Required<ImageOptimizationOptions>["format"] {
+  const ext = filePath.toLowerCase().split(".").pop() || "";
+  switch (ext) {
+    case "png":
+      return "png";
+    case "webp":
+      return "webp";
+    case "jpg":
+    case "jpeg":
+      return "jpeg";
+    default:
+      return fallback;
+  }
+}
+
+/**
+ * Re-encodes the original (full-resolution) source bytes to the requested
+ * format WITHOUT resizing, for writing a true full-resolution file to disk.
+ *
+ * This is distinct from the inline/optimized copy returned in the response —
+ * `save_path` should always receive the full-resolution image, honouring the
+ * destination extension's format so the bytes match the filename.
+ *
+ * @param originalBuffer - Raw original source image bytes
+ * @param format - Target image format
+ * @param quality - Quality for lossy formats (kept high for archival output)
+ * @returns Encoded full-resolution image plus its dimensions
+ */
+export async function encodeFullResolution(
+  originalBuffer: Buffer,
+  format: Required<ImageOptimizationOptions>["format"],
+  quality = 95
+): Promise<FullResolutionImage> {
+  const encoded = await encodeImage(sharp(originalBuffer), format, quality);
+  const meta = await sharp(encoded.buffer).metadata();
+  return {
+    buffer: encoded.buffer,
+    mimeType: encoded.mimeType,
+    width: meta.width || 0,
+    height: meta.height || 0,
+  };
+}
+
+/**
  * Fetches an image, optimizes it, and saves it to the filesystem
  *
  * Similar to fetchAndOptimizeImage but saves to disk instead of returning base64.

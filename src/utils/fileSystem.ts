@@ -60,6 +60,9 @@ export async function ensureTempSubdir(subdir: string): Promise<string> {
 /**
  * Generates a unique extraction directory path for a workbook
  *
+ * This is the temp-based fallback location, used when writing beside the
+ * input .twbx is not possible (e.g. a read-only source directory).
+ *
  * @param workbookName - Name of the workbook
  * @returns Path for extraction directory
  */
@@ -67,6 +70,39 @@ export function getExtractionPath(workbookName: string): string {
   const timestamp = Date.now();
   const safeName = workbookName.replace(/[^a-zA-Z0-9_-]/g, "_");
   return path.join(TABLEAU_TEMP_DIR, "extracted", `${safeName}_${timestamp}`);
+}
+
+/**
+ * Generates the default extraction directory for a .twbx file, placed beside
+ * the input file at `<directory of the .twbx>/extracted/<workbook-name>`.
+ *
+ * Extracting beside the input means any caller that can read the .twbx can
+ * also read the extracted .twb/.hyper — unlike the %TEMP% fallback, which is
+ * invisible to sandboxed callers (e.g. Cowork). The workbook name is used
+ * verbatim (not sanitized) since it already came from a valid filename.
+ *
+ * @param twbxFilePath - Full path to the input .twbx file
+ * @returns Path for the extraction directory beside the input file
+ */
+export function getDefaultExtractionPath(twbxFilePath: string): string {
+  const baseName = path.basename(twbxFilePath, path.extname(twbxFilePath));
+  return path.join(path.dirname(twbxFilePath), "extracted", baseName);
+}
+
+/**
+ * Resolves a path to its canonical long form, avoiding Windows 8.3 short
+ * paths (e.g. `WILLSU~1`). Falls back to the input path if it cannot be
+ * resolved (e.g. the path does not exist yet).
+ *
+ * @param targetPath - Path to resolve
+ * @returns The long-form (canonical) path, or the original on failure
+ */
+export async function toLongPath(targetPath: string): Promise<string> {
+  try {
+    return await fs.realpath(targetPath);
+  } catch {
+    return targetPath;
+  }
 }
 
 /**
@@ -78,6 +114,41 @@ export function getExtractionPath(workbookName: string): string {
 export function getDownloadPath(workbookName: string): string {
   const safeName = workbookName.replace(/[^a-zA-Z0-9_-]/g, "_");
   return path.join(TABLEAU_TEMP_DIR, "downloads", `${safeName}.twbx`);
+}
+
+/**
+ * Resolves a caller-supplied output path to an absolute path.
+ *
+ * Absolute paths are returned unchanged. RELATIVE paths are resolved against
+ * `baseDir` — deliberately NOT `process.cwd()`, because sandboxed hosts (e.g.
+ * Cowork) launch the server with an unrelated cwd (often C:\windows\system32),
+ * which would otherwise make relative paths unwritable/unreadable.
+ *
+ * @param outputPath - Caller-supplied path (absolute or relative)
+ * @param baseDir - Base directory for resolving relative paths
+ * @returns Absolute path
+ */
+export function resolveOutputPath(outputPath: string, baseDir: string): string {
+  return path.isAbsolute(outputPath) ? outputPath : path.resolve(baseDir, outputPath);
+}
+
+/**
+ * Generates the download path for a TWBX file inside a caller-supplied
+ * directory, resolving relative directories against `baseDir` (never cwd).
+ *
+ * Downloading beside the caller's outputs — rather than to %TEMP% — means a
+ * sandboxed/containerised caller can actually read the resulting file, mirroring
+ * the default-beside-input behaviour of unpack_twbx.
+ *
+ * @param workbookName - Name of the workbook
+ * @param baseDir - Base directory used when outputDir is omitted or relative
+ * @param outputDir - Optional directory to save into (absolute or relative)
+ * @returns Absolute path where the TWBX file should be saved
+ */
+export function getDownloadPathIn(workbookName: string, baseDir: string, outputDir?: string): string {
+  const safeName = workbookName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const dir = outputDir ? resolveOutputPath(outputDir, baseDir) : baseDir;
+  return path.join(dir, `${safeName}.twbx`);
 }
 
 /**

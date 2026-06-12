@@ -16,6 +16,8 @@ import { createSuccessResult, createErrorResult } from "../../utils/errorHandlin
 import {
   fileExists,
   getExtractionPath,
+  getDefaultExtractionPath,
+  toLongPath,
   formatFileSize,
   categorizeFile,
   FileInfo
@@ -30,7 +32,12 @@ const paramsSchema = z.object({
     .describe("Full path to the .twbx file to unpack (from download_workbook_twbx)"),
   extractTo: z.string()
     .optional()
-    .describe("Optional extraction directory. Defaults to a temp subdirectory based on the filename.")
+    .describe(
+      "Optional extraction directory override. By default the contents are " +
+      "extracted beside the input file at <directory of the .twbx>/extracted/<workbook-name>, " +
+      "so any caller that can read the .twbx can also read the extracted files. " +
+      "Provide this to extract to a specific directory instead."
+    )
 });
 
 type UnpackTwbxParams = z.infer<typeof paramsSchema>;
@@ -74,7 +81,12 @@ export function unpackTwbxTool(server: Server): Tool<typeof paramsSchema.shape> 
     name: "unpack_twbx",
     description: "Extracts and analyzes the contents of a Tableau .twbx file. " +
       "A .twbx is a packaged workbook containing the workbook XML (.twb), data extracts, and images. " +
-      "Returns the extraction path and a categorized inventory of all files. " +
+      "By default the contents are extracted beside the input file at " +
+      "<directory of the .twbx>/extracted/<workbook-name> so that any caller that can read the " +
+      ".twbx can also read the extracted .twb/.hyper (pass extractTo to override). " +
+      "If that location is not writable, extraction falls back to a temp directory and the " +
+      "response includes a 'warning' field, since temp paths may be unreadable by sandboxed callers. " +
+      "Returns the (long-form) extraction path and a categorized inventory of all files. " +
       "Categories: twb (workbook XML), data (extracts like .hyper/.tde), image (embedded images), other. " +
       "Use with files downloaded via download_workbook_twbx tool.",
     paramsSchema: paramsSchema.shape,
@@ -114,9 +126,13 @@ export function unpackTwbxTool(server: Server): Tool<typeof paramsSchema.shape> 
           );
         }
 
-        // Step 3: Determine extraction directory
+        // Step 3: Determine extraction directory.
+        // Default: beside the input file so any caller that can read the .twbx
+        // can also read the extracted files. An explicit extractTo overrides this.
         const baseName = path.basename(filePath, ".twbx");
-        const extractionPath = extractTo || getExtractionPath(baseName);
+        const usingDefaultLocation = !extractTo;
+        let extractionPath = extractTo || getDefaultExtractionPath(filePath);
+        let warning: string | undefined;
 
         console.error(`[unpack_twbx] Extracting to: ${extractionPath}`);
 
@@ -138,16 +154,50 @@ export function unpackTwbxTool(server: Server): Tool<typeof paramsSchema.shape> 
         try {
           zip.extractAllTo(extractionPath, true);
         } catch (error) {
-          return createErrorResult(
-            "Failed to extract TWBX file",
-            {
-              filePath,
-              extractionPath,
-              error: error instanceof Error ? error.message : String(error),
-              suggestion: "Check disk space and permissions"
+          // If we were writing beside the input and that failed (e.g. a
+          // read-only source directory), fall back to the temp directory and
+          // warn the caller that the result may not be reachable from a sandbox.
+          if (usingDefaultLocation) {
+            const fallbackPath = getExtractionPath(baseName);
+            console.error(
+              `[unpack_twbx] Default location not writable (${error instanceof Error ? error.message : String(error)}). ` +
+              `Falling back to temp: ${fallbackPath}`
+            );
+            try {
+              zip.extractAllTo(fallbackPath, true);
+              extractionPath = fallbackPath;
+              warning =
+                "Could not write beside the input .twbx (the source directory may be read-only), " +
+                "so the contents were extracted to a temporary directory instead. This path may not be " +
+                "readable by sandboxed callers (e.g. Cowork). To guarantee the extracted files are " +
+                "reachable, re-run with an explicit 'extractTo' pointing to a directory you can read.";
+            } catch (fallbackError) {
+              return createErrorResult(
+                "Failed to extract TWBX file",
+                {
+                  filePath,
+                  extractionPath: fallbackPath,
+                  error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+                  suggestion: "Check disk space and permissions"
+                }
+              );
             }
-          );
+          } else {
+            return createErrorResult(
+              "Failed to extract TWBX file",
+              {
+                filePath,
+                extractionPath,
+                error: error instanceof Error ? error.message : String(error),
+                suggestion: "Check disk space and permissions"
+              }
+            );
+          }
         }
+
+        // Normalize to the long-form path so we never return a Windows 8.3
+        // short path (e.g. WILLSU~1) that callers may not be able to resolve.
+        extractionPath = await toLongPath(extractionPath);
 
         console.error(`[unpack_twbx] Extraction complete`);
 
@@ -213,6 +263,7 @@ export function unpackTwbxTool(server: Server): Tool<typeof paramsSchema.shape> 
           success: true,
           sourceFile: filePath,
           extractionPath,
+          ...(warning ? { warning } : {}),
           mainTwbFile,
           mainTwbPath: mainTwbFile ? path.join(extractionPath, mainTwbFile) : null,
           summary: {
