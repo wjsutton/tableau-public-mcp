@@ -76,7 +76,7 @@ npm run build
 Add the server to your Claude Desktop configuration file:
 
 **Location:**
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- macOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 **Configuration (npm):**
